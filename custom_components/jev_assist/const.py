@@ -66,3 +66,9 @@ TARGET_UNKNOWN: Final = "unknown"
 
 SUPPORTED_LANGUAGES: Final = ("en", "de")
 DEFAULT_LANGUAGE: Final = "en"
+
+# SpaceXAI umbrella conversation entity (luxus/HA-xAI-Custom-TTS domain spacexai).
+# Override with config-entry options/data key grok_handoff_agent_id.
+GROK_HANDOFF_AGENT_ID: Final = "conversation.spacexai_grok"
+CONF_GROK_HANDOFF_AGENT_ID: Final = "grok_handoff_agent_id"
+GROK_HANDOFF_UNAVAILABLE_SPEECH: Final = "Grok is not available."

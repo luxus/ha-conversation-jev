@@ -1,6 +1,6 @@
 # Jev Assist
 
-Home Assistant custom conversation agent: **Jev** (TypeSafe System One, `jev-latest`) classifies an utterance, then either calls a **light** service (v0 fast path) or marks the **Grok** fallback.
+Home Assistant custom conversation agent: **Jev** (TypeSafe System One, `jev-latest`) classifies an utterance, then either calls a **light** service (v0 fast path) or hands off to the **SpaceXAI Grok** conversation agent.
 
 ## Install (HACS)
 
@@ -33,7 +33,7 @@ After setup, pick **Jev Assist** as the conversation agent in an Assist pipeline
 - Router kinds: `fast_service` | `grok` | `reject` (gates in `CONTRACT.md` / `const.py`: `FAST_MIN_CONFIDENCE=0.80`, `NOUL_YES_THRESHOLD=0.55`).
 - Fast path maps light `turn_on` / `turn_off` / `toggle` / `set_brightness` (brightness regex in `light_map.py`).
 - Whole-home safety: `target_area=none` never fires all exposed lights; needs a name-token match or an explicit area.
-- The Grok path is a stub in v1 (it is marked, not fully generated).
+- Grok path: `conversation.async_converse` to `conversation.spacexai_grok` (`GROK_HANDOFF_AGENT_ID`; override with config-entry `grok_handoff_agent_id`). No TTS/STT/chat stack inside Jev.
 
 ## Tests
 

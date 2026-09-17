@@ -1,4 +1,4 @@
-"""Conversation entity: Jev route → light service or Grok-path stub."""
+"""Conversation entity: Jev route → light service or SpaceXAI Grok handoff."""
 
 from __future__ import annotations
 
@@ -17,8 +17,12 @@ from homeassistant.helpers import (
 )
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, GROK_HANDOFF_UNAVAILABLE_SPEECH
 from .exposure import should_expose_compat, sort_lights_first
+from .grok_handoff import (
+    async_handoff_to_conversation_agent,
+    resolve_grok_handoff_agent_id,
+)
 from .jev_router import ExposedEntity, RouteResult, route
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,7 +43,7 @@ class JevAssistConversationEntity(
     conversation.ConversationEntity,
     conversation.AbstractConversationAgent,
 ):
-    """Assist agent that fast-paths lights via Jev and stubs the Grok path."""
+    """Assist agent that fast-paths lights via Jev and hands Grok off to SpaceXAI."""
 
     _attr_has_entity_name = True
     _attr_name = None
@@ -73,27 +77,19 @@ class JevAssistConversationEntity(
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult:
-        result = await self._async_route_and_act(user_input)
-        speech = _speech_from_result(result)
-        try:
-            chat_log.async_add_assistant_content_without_tools(
-                conversation.AssistantContent(
-                    agent_id=user_input.agent_id,
-                    content=speech,
-                )
-            )
-        except Exception:  # noqa: BLE001 — older ChatLog shapes
-            _LOGGER.debug("Chat log attach skipped", exc_info=True)
-        return result
+        return await self._async_route_and_act(user_input, chat_log=chat_log)
 
     async def async_process(
         self, user_input: conversation.ConversationInput
     ) -> conversation.ConversationResult:
         """Older HA path without ChatLog wrapping."""
-        return await self._async_route_and_act(user_input)
+        return await self._async_route_and_act(user_input, chat_log=None)
 
     async def _async_route_and_act(
-        self, user_input: conversation.ConversationInput
+        self,
+        user_input: conversation.ConversationInput,
+        *,
+        chat_log: conversation.ChatLog | None,
     ) -> conversation.ConversationResult:
         runtime = self.hass.data[DOMAIN][self.entry.entry_id]
         exposed = _exposed_entities(self.hass)
@@ -105,7 +101,18 @@ class JevAssistConversationEntity(
         )
         _LOGGER.debug("Jev route kind=%s reason=%s", routed.kind, routed.reason)
 
-        intent_response = intent.IntentResponse(language=user_input.language)
+        if routed.kind == "grok":
+            # Target agent owns ChatLog content on success; attach only on local fallback.
+            try:
+                return await self._async_handoff_to_grok(user_input)
+            except ValueError as err:
+                agent_id = resolve_grok_handoff_agent_id(self.entry)
+                _LOGGER.error("Grok handoff to %s failed: %s", agent_id, err)
+                speech = GROK_HANDOFF_UNAVAILABLE_SPEECH
+                result = _speech_result(user_input, speech)
+                _attach_assistant(chat_log, user_input, speech)
+                return result
+
         if routed.kind == "fast_service" and routed.domain and routed.service:
             await self.hass.services.async_call(
                 routed.domain,
@@ -115,28 +122,51 @@ class JevAssistConversationEntity(
                 context=user_input.context,
             )
             speech = "OK"
-            intent_response.async_set_speech(speech)
-        elif routed.kind == "grok":
-            speech = f"Grok path ({routed.reason})."
-            intent_response.async_set_speech(speech)
         else:
             speech = "I can't help with that."
-            intent_response.async_set_speech(speech)
 
-        return conversation.ConversationResult(
-            response=intent_response,
-            conversation_id=user_input.conversation_id,
+        result = _speech_result(user_input, speech)
+        _attach_assistant(chat_log, user_input, speech)
+        return result
+
+    async def _async_handoff_to_grok(
+        self, user_input: conversation.ConversationInput
+    ) -> conversation.ConversationResult:
+        return await async_handoff_to_conversation_agent(
+            self.hass,
+            user_input,
+            agent_id=resolve_grok_handoff_agent_id(self.entry),
+            converse=conversation.async_converse,
         )
 
 
-def _speech_from_result(result: conversation.ConversationResult) -> str:
+def _speech_result(
+    user_input: conversation.ConversationInput, speech: str
+) -> conversation.ConversationResult:
+    intent_response = intent.IntentResponse(language=user_input.language)
+    intent_response.async_set_speech(speech)
+    return conversation.ConversationResult(
+        response=intent_response,
+        conversation_id=user_input.conversation_id,
+    )
+
+
+def _attach_assistant(
+    chat_log: conversation.ChatLog | None,
+    user_input: conversation.ConversationInput,
+    speech: str,
+) -> None:
+    if chat_log is None or not speech:
+        return
     try:
-        speech = result.response.speech.get("plain", {}).get("speech")
-        if isinstance(speech, str):
-            return speech
-    except Exception:  # noqa: BLE001
-        pass
-    return ""
+        chat_log.async_add_assistant_content_without_tools(
+            conversation.AssistantContent(
+                agent_id=user_input.agent_id,
+                content=speech,
+            )
+        )
+    except Exception:  # noqa: BLE001 — older ChatLog shapes
+        _LOGGER.debug("Chat log attach skipped", exc_info=True)
 
 
 def _exposed_entities(hass: HomeAssistant) -> list[ExposedEntity]:

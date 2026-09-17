@@ -10,7 +10,7 @@ fast-path domains until climate/cover land.
 | kind | meaning |
 |------|---------|
 | `fast_service` | Deterministic Home Assistant light service call |
-| `grok` | Hand off to Grok (compound, needs LLM, low confidence, non-light, ambiguous target) |
+| `grok` | Hand off to `conversation.spacexai_grok` via HA `conversation.async_converse` (compound, needs LLM, low confidence, non-light, ambiguous target) |
 | `reject` | Do not act (unsafe / out of scope / no matching exposed entity for an explicit area) |
 
 ## Categories
@@ -74,3 +74,15 @@ Device-code + PKCE at `https://auth.x.ai`. Not HA Application Credentials.
 API key for `https://api.x.ai` is fallback only.
 
 TypeSafe/Jev remains an API key (`jev-latest` via `typesafe-sdk`).
+
+## Grok handoff
+
+When the router returns `kind=grok`, the conversation entity calls Home Assistant
+`conversation.async_converse` with `agent_id=GROK_HANDOFF_AGENT_ID` (default
+`conversation.spacexai_grok`, the SpaceXAI umbrella conversation entity). The
+same `text`, `conversation_id`, `context`, `language`, `device_id`,
+`satellite_id`, and `extra_system_prompt` are forwarded.
+
+Jev does **not** run TTS, STT, or a Grok chat stack. Override the target with
+config-entry option/data key `grok_handoff_agent_id`. If the agent is missing
+or the target is this agent, Assist gets `Grok is not available.`
