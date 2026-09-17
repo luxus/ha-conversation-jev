@@ -18,6 +18,7 @@ from homeassistant.helpers import (
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
+from .exposure import should_expose_compat, sort_lights_first
 from .jev_router import ExposedEntity, RouteResult, route
 
 _LOGGER = logging.getLogger(__name__)
@@ -170,7 +171,7 @@ def _exposed_entities(hass: HomeAssistant) -> list[ExposedEntity]:
                 aliases=aliases,
             )
         )
-    return items
+    return sort_lights_first(items)
 
 
 def _should_expose(hass: HomeAssistant, entity_id: str) -> bool:
@@ -178,7 +179,9 @@ def _should_expose(hass: HomeAssistant, entity_id: str) -> bool:
         from homeassistant.components.homeassistant.exposed_entities import (
             async_should_expose,
         )
+    except ImportError:
+        return False
 
-        return bool(async_should_expose(hass, conversation.DOMAIN, entity_id))
-    except Exception:  # noqa: BLE001
-        return entity_id.startswith("light.")
+    return should_expose_compat(
+        lambda: async_should_expose(hass, conversation.DOMAIN, entity_id)
+    )

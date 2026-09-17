@@ -18,10 +18,18 @@ CONF_REFRESH_TOKEN: Final = "refresh_token"
 CONF_EXPIRES_AT: Final = "expires_at"
 CONF_TOKEN_TYPE: Final = "token_type"
 CONF_SCOPE: Final = "scope"
+CONF_OAUTH_RECOVERY: Final = "oauth_recovery"
 
 AUTH_OAUTH: Final = "oauth"
 AUTH_API_KEY: Final = "api_key"
 AuthMethod = Literal["oauth", "api_key"]
+
+OAUTH_RECOVERY_RETRY: Final = "retry_oauth"
+OAUTH_RECOVERY_API_KEY: Final = "api_key"
+OAUTH_RECOVERY_ABORT: Final = "abort"
+
+# Refresh access tokens this many seconds before expires_at.
+TOKEN_EXPIRY_SKEW_SECONDS: Final = 60
 
 # Grok CLI public client (grok-build / auth.x.ai). No Application Credentials.
 # Verified byte-for-byte against xai-org/grok-build

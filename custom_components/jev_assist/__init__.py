@@ -14,6 +14,13 @@ from .const import (
     CONF_TYPESAFE_API_KEY,
     DOMAIN,
 )
+from .grok_oauth import (
+    GrokOAuthError,
+    OAUTH_TRANSPORT_ERRORS,
+    access_token_needs_refresh,
+    refresh_access_token,
+    token_data_updates,
+)
 from .jev_client import TypeSafeJevClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,22 +71,24 @@ async def _async_reload(hass: Any, entry: Any) -> None:
 
 
 async def _async_refresh_grok_tokens(hass: Any, entry: Any) -> None:
-    """Refresh Grok OAuth tokens; persist a rotated refresh token."""
-    from homeassistant.exceptions import ConfigEntryAuthFailed
+    """Refresh Grok OAuth tokens only when missing or near expiry."""
+    from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-    from .grok_oauth import GrokOAuthError, refresh_access_token, token_data_updates
 
     refresh_token = entry.data.get(CONF_REFRESH_TOKEN)
     if not refresh_token:
         if not entry.data.get(CONF_ACCESS_TOKEN):
             raise ConfigEntryAuthFailed("Grok OAuth tokens missing")
         return
+    if not access_token_needs_refresh(entry.data):
+        return
     session = async_get_clientsession(hass)
     try:
         tokens = await refresh_access_token(session, refresh_token)
     except GrokOAuthError as err:
         raise ConfigEntryAuthFailed(str(err)) from err
+    except OAUTH_TRANSPORT_ERRORS as err:
+        raise ConfigEntryNotReady("Could not refresh Grok OAuth tokens") from err
     updates = token_data_updates(tokens)
     if any(entry.data.get(key) != value for key, value in updates.items()):
         hass.config_entries.async_update_entry(entry, data={**entry.data, **updates})
