@@ -123,7 +123,9 @@ _install_homeassistant_stubs()
 
 from jev_assist.conversation import (  # noqa: E402
     JevAssistConversationEntity,
+    _exposed_entities,
 )
+from jev_assist import conversation as conversation_mod  # noqa: E402
 
 
 class RaisingJevClient:
@@ -248,3 +250,57 @@ async def test_grok_handoff_failure_still_uses_unavailable_speech(
     result = await entity._async_route_and_act(_input(), chat_log=None)
     assert _speech(result) == GROK_HANDOFF_UNAVAILABLE_SPEECH
     assert _speech(result) != ROUTE_FAILURE_SPEECH
+
+
+class ComputedNameType:
+    def __init__(self, value: str) -> None:
+        self.value = value
+
+    def __str__(self) -> str:
+        return self.value
+
+
+def test_exposed_entities_coerces_computed_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = SimpleNamespace(
+        entity_id="light.kitchen",
+        name=ComputedNameType("Kitchen lamp"),
+    )
+    entry = SimpleNamespace(
+        aliases=(ComputedNameType("Küche"),),
+        area_id="kitchen",
+        device_id=None,
+    )
+    hass = SimpleNamespace(
+        states=SimpleNamespace(async_all=lambda: [state]),
+    )
+    monkeypatch.setattr(
+        conversation_mod.er,
+        "async_get",
+        lambda _hass: SimpleNamespace(async_get=lambda _eid: entry),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        conversation_mod.ar,
+        "async_get",
+        lambda _hass: SimpleNamespace(
+            async_get_area=lambda _aid: SimpleNamespace(
+                name=ComputedNameType("Kitchen")
+            )
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "jev_assist.conversation._should_expose",
+        lambda _hass, _eid: True,
+    )
+
+    items = _exposed_entities(hass)
+    assert len(items) == 1
+    assert items[0].name == "Kitchen lamp"
+    assert isinstance(items[0].name, str)
+    assert items[0].area == "Kitchen"
+    assert isinstance(items[0].area, str)
+    assert items[0].aliases == ("Küche",)
+    assert all(isinstance(alias, str) for alias in items[0].aliases)

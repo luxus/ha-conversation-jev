@@ -57,3 +57,41 @@ def test_sort_lights_first_before_cap() -> None:
     payload = json.loads(build_state("turn off kitchen", capped, "en"))
     ids = [item["entity_id"] for item in payload["exposed_entities"]]
     assert "light.kitchen" in ids
+
+
+class ComputedNameType:
+    """Stand-in for HA's non-str `state.name` (not JSON serializable)."""
+
+    def __init__(self, value: str) -> None:
+        self.value = value
+
+    def __str__(self) -> str:
+        return self.value
+
+
+def test_build_state_serializes_non_str_name() -> None:
+    name = ComputedNameType("Kitchen lamp")
+    area = ComputedNameType("Kitchen")
+    alias = ComputedNameType("Küche")
+    with pytest.raises(TypeError, match="ComputedNameType"):
+        json.dumps({"name": name})
+
+    entity = ExposedEntity(
+        entity_id="light.kitchen",
+        domain="light",
+        name=name,  # type: ignore[arg-type]
+        area=area,  # type: ignore[arg-type]
+        aliases=(alias,),  # type: ignore[arg-type]
+    )
+    raw = build_state("lichter aus", [entity], "de")
+    payload = json.loads(raw)
+    dumped = payload["exposed_entities"][0]
+    assert dumped["name"] == "Kitchen lamp"
+    assert isinstance(dumped["name"], str)
+    assert dumped["area"] == "Kitchen"
+    assert isinstance(dumped["area"], str)
+    assert dumped["aliases"] == ["Küche"]
+    assert all(isinstance(item, str) for item in dumped["aliases"])
+    assert payload["areas"] == ["Kitchen"]
+    assert all(isinstance(item, str) for item in payload["areas"])
+    json.dumps(payload)

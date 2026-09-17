@@ -32,9 +32,22 @@ def unique_areas(exposed: Sequence[ExposedEntity]) -> list[str]:
     """Stable unique area names from exposed entities."""
     seen: list[str] = []
     for item in exposed:
-        if item.area and item.area not in seen:
-            seen.append(item.area)
+        if not item.area:
+            continue
+        area = str(item.area)
+        if area not in seen:
+            seen.append(area)
     return seen
+
+
+def _plain_text(value: object) -> str:
+    return str(value)
+
+
+def _plain_optional_text(value: object | None) -> str | None:
+    if value is None:
+        return None
+    return str(value)
 
 
 def build_state(
@@ -45,21 +58,21 @@ def build_state(
     """JSON-string state for system_one (preferred over a raw dict)."""
     capped = list(exposed)[:EXPOSED_ENTITY_CAP]
     payload: dict[str, Any] = {
-        "text": utterance,
-        "language": language,
+        "text": _plain_text(utterance),
+        "language": _plain_text(language),
         "exposed_entities": [
             {
-                "entity_id": item.entity_id,
-                "domain": item.domain,
-                "name": item.name,
-                "area": item.area,
-                "aliases": list(item.aliases),
+                "entity_id": _plain_text(item.entity_id),
+                "domain": _plain_text(item.domain),
+                "name": _plain_text(item.name),
+                "area": _plain_optional_text(item.area),
+                "aliases": [_plain_text(alias) for alias in item.aliases],
             }
             for item in capped
         ],
         "areas": unique_areas(capped),
     }
-    return json.dumps(payload, ensure_ascii=False)
+    return json.dumps(payload, ensure_ascii=False, default=str)
 
 
 def build_questions(language: str, areas: Sequence[str]) -> dict[str, Choice | Noul]:

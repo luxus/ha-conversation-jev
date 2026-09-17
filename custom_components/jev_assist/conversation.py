@@ -240,19 +240,21 @@ def _exposed_entities(hass: HomeAssistant) -> list[ExposedEntity]:
         area_name: str | None = None
         aliases: tuple[str, ...] = ()
         if entry is not None:
-            aliases = tuple(entry.aliases or ())
+            aliases = tuple(str(alias) for alias in (entry.aliases or ()))
             area_id = entry.area_id
             if not area_id and entry.device_id:
                 device = dr.async_get(hass).async_get(entry.device_id)
                 area_id = device.area_id if device else None
             if area_id:
                 area = area_reg.async_get_area(area_id)
-                area_name = area.name if area else None
+                if area is not None and area.name is not None:
+                    area_name = str(area.name)
         items.append(
             ExposedEntity(
-                entity_id=entity_id,
-                domain=domain,
-                name=state.name,
+                entity_id=str(entity_id),
+                domain=str(domain),
+                # HA 2025+ `state.name` may be ComputedNameType, not a plain str.
+                name=str(state.name),
                 area=area_name,
                 aliases=aliases,
             )
