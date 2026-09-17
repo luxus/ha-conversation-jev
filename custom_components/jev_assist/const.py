@@ -24,6 +24,9 @@ AUTH_API_KEY: Final = "api_key"
 AuthMethod = Literal["oauth", "api_key"]
 
 # Grok CLI public client (grok-build / auth.x.ai). No Application Credentials.
+# Verified byte-for-byte against xai-org/grok-build
+# crates/codegen/xai-grok-login/src/config.rs
+#   obfstr!("b1a00492-073a-47ea-816f-4c329264a828")
 GROK_OAUTH_ISSUER: Final = "https://auth.x.ai"
 GROK_OAUTH_CLIENT_ID: Final = "b1a00492-073a-47ea-816f-4c329264a828"
 GROK_OAUTH_DEVICE_URL: Final = f"{GROK_OAUTH_ISSUER}/oauth2/device/code"
@@ -38,9 +41,9 @@ GROK_OAUTH_REFERRER: Final = "grok-build"
 GROK_API_BASE: Final = "https://api.x.ai"
 GROK_CLI_PROXY_BASE: Final = "https://cli-chat-proxy.grok.com"
 
-# Router gates (CONTRACT.md v1)
+# Router gates (CONTRACT.md v0, blessed)
 FAST_MIN_CONFIDENCE: Final = 0.80
-NOUL_YES_THRESHOLD: Final = 0.50
+NOUL_YES_THRESHOLD: Final = 0.55
 REJECT_MIN_CONFIDENCE: Final = 0.80
 
 CATEGORY_COMMAND: Final = "command"

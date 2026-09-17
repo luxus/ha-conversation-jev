@@ -1,4 +1,9 @@
-"""DE/EN TypeSafe question constants for Jev Assist."""
+"""DE/EN TypeSafe question constants for Jev Assist.
+
+Climate/cover (and other non-light) domains exist so Jev can classify them.
+v0 only maps ``light`` to ``fast_service``; other domains go to Grok.
+Do not expand categories until climate/cover get a fast-path.
+"""
 
 from __future__ import annotations
 

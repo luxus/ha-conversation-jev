@@ -29,3 +29,26 @@ def test_option_maps_are_bilingual() -> None:
         assert options
         for key, langs in options.items():
             _assert_lang_map(f"{name}.{key}", langs)
+
+
+def test_action_keys_align_with_light_map() -> None:
+    """Freeze v0 action keys vs the light service map."""
+    from jev_assist.light_map import LIGHT_ACTION_MAP
+
+    frozen = {"turn_on", "turn_off", "toggle", "set_brightness", "other"}
+    assert set(criteria.ACTION_OPTIONS) == frozen
+    assert set(LIGHT_ACTION_MAP) == frozen - {"other"}
+    assert set(LIGHT_ACTION_MAP) <= set(criteria.ACTION_OPTIONS)
+    assert set(LIGHT_ACTION_MAP) & set(criteria.ACTION_OPTIONS) == {
+        "turn_on",
+        "turn_off",
+        "toggle",
+        "set_brightness",
+    }
+
+
+def test_blessed_gate_constants() -> None:
+    from jev_assist.const import FAST_MIN_CONFIDENCE, NOUL_YES_THRESHOLD
+
+    assert FAST_MIN_CONFIDENCE == 0.80
+    assert NOUL_YES_THRESHOLD == 0.55

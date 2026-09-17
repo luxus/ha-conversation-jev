@@ -71,6 +71,18 @@ async def test_grok_when_needs_llm() -> None:
 
 
 @pytest.mark.asyncio
+async def test_needs_llm_below_threshold_still_fast() -> None:
+    client = FakeJevClient(classification(needs_llm=NOUL_YES_THRESHOLD - 0.01))
+    result = await route(
+        "turn off the living lamp",
+        [LIVING_LAMP],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+
+
+@pytest.mark.asyncio
 async def test_grok_when_compound() -> None:
     client = FakeJevClient(classification(is_compound=0.91))
     result = await route(
@@ -139,7 +151,7 @@ async def test_grok_brightness_missing_for_set() -> None:
 
 
 @pytest.mark.asyncio
-async def test_housewide_none_uses_all_exposed_lights() -> None:
+async def test_target_area_none_does_not_fire_all_lights() -> None:
     other = ExposedEntity(
         entity_id="light.kitchen",
         domain="light",
@@ -148,5 +160,25 @@ async def test_housewide_none_uses_all_exposed_lights() -> None:
     )
     client = FakeJevClient(classification(action="turn_off", target_area="none"))
     result = await route("turn off the lights", [LIVING_LAMP, other], language="en", client=client)
+    assert result.kind == "grok"
+    assert result.reason == "no_named_or_area_target"
+    assert result.service_data is None
+
+
+@pytest.mark.asyncio
+async def test_target_area_none_name_token_match() -> None:
+    other = ExposedEntity(
+        entity_id="light.kitchen",
+        domain="light",
+        name="Kitchen",
+        area="Kitchen",
+    )
+    client = FakeJevClient(classification(action="turn_off", target_area="none"))
+    result = await route(
+        "turn off the living lamp",
+        [LIVING_LAMP, other],
+        language="en",
+        client=client,
+    )
     assert result.kind == "fast_service"
-    assert result.service_data["entity_id"] == ["light.living_lamp", "light.kitchen"]
+    assert result.service_data == {"entity_id": "light.living_lamp"}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, Sequence
 
@@ -13,9 +14,63 @@ from .const import (
     FAST_MIN_CONFIDENCE,
     NOUL_YES_THRESHOLD,
     REJECT_MIN_CONFIDENCE,
+    TARGET_NONE,
     TARGET_UNKNOWN,
 )
 from .light_map import LIGHT_ACTION_MAP, light_service_call
+
+_TOKEN_RE = re.compile(r"[a-z0-9äöüß]+", re.IGNORECASE)
+_STOP_TOKENS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "to",
+        "on",
+        "off",
+        "turn",
+        "set",
+        "please",
+        "all",
+        "make",
+        "it",
+        "and",
+        "in",
+        "of",
+        "my",
+        "me",
+        "das",
+        "die",
+        "der",
+        "den",
+        "dem",
+        "ein",
+        "eine",
+        "einen",
+        "auf",
+        "aus",
+        "bitte",
+        "schalte",
+        "mach",
+        "machen",
+    }
+)
+_GENERIC_LIGHT_TOKENS = frozenset(
+    {
+        "light",
+        "lights",
+        "lamp",
+        "lamps",
+        "licht",
+        "lichter",
+        "lampe",
+        "lampen",
+        "bulb",
+        "bulbs",
+        "led",
+        "dimmer",
+    }
+)
 
 RouteKind = Literal["fast_service", "grok", "reject"]
 
@@ -105,22 +160,52 @@ def _noul_yes(view: NoulView) -> bool:
     return view.noul >= NOUL_YES_THRESHOLD
 
 
-def _matching_lights(
+def _words(text: str) -> set[str]:
+    return {match.group(0).casefold() for match in _TOKEN_RE.finditer(text)}
+
+
+def _entity_name_tokens(entity: ExposedEntity) -> set[str]:
+    """Distinctive name tokens (not domain generics / stopwords)."""
+    blob = " ".join(
+        (entity.name, entity.entity_id.split(".", 1)[-1].replace("_", " "), *entity.aliases)
+    )
+    return {
+        token
+        for token in _words(blob)
+        if len(token) >= 3 and token not in _STOP_TOKENS and token not in _GENERIC_LIGHT_TOKENS
+    }
+
+
+def _name_matched_lights(
+    utterance: str, lights: Sequence[ExposedEntity]
+) -> list[ExposedEntity]:
+    uttered = _words(utterance)
+    return [item for item in lights if _entity_name_tokens(item) & uttered]
+
+
+def _resolve_lights(
+    utterance: str,
     exposed: Sequence[ExposedEntity],
     target_area: str,
-) -> list[ExposedEntity]:
+) -> tuple[list[ExposedEntity], str | None]:
+    """Resolve light targets. Never fire all exposed lights on ``none`` alone.
+
+    Fast path requires an explicit area (not none/unknown) or a name-token
+    match. Otherwise the caller should Grok, not whole-home.
+    """
     lights = [item for item in exposed if item.domain == DOMAIN_LIGHT]
-    if target_area in {TARGET_UNKNOWN}:
-        return []
-    if target_area and target_area not in {"none", TARGET_UNKNOWN}:
+    if target_area == TARGET_UNKNOWN:
+        return [], "target_area_unknown"
+    if target_area and target_area != TARGET_NONE:
         wanted = target_area.casefold()
-        scoped = [
-            item
-            for item in lights
-            if (item.area or "").casefold() == wanted
-        ]
-        return scoped
-    return lights
+        scoped = [item for item in lights if (item.area or "").casefold() == wanted]
+        if not scoped:
+            return [], "no_exposed_light"
+        return scoped, None
+    named = _name_matched_lights(utterance, lights)
+    if named:
+        return named, None
+    return [], "no_named_or_area_target"
 
 
 def apply_gates(
@@ -128,7 +213,7 @@ def apply_gates(
     exposed: Sequence[ExposedEntity],
     classification: JevClassification,
 ) -> RouteResult:
-    """Apply CONTRACT.md v1 gates to a Jev classification."""
+    """Apply CONTRACT.md v0 gates to a Jev classification."""
     cat = classification.category
     if cat.choice == CATEGORY_REJECT and cat.confidence >= REJECT_MIN_CONFIDENCE:
         return RouteResult(
@@ -171,12 +256,6 @@ def apply_gates(
             reason="action_unmapped",
             classification=classification,
         )
-    if classification.target_area.choice == TARGET_UNKNOWN:
-        return RouteResult(
-            kind="grok",
-            reason="target_area_unknown",
-            classification=classification,
-        )
     if classification.target_area.confidence < FAST_MIN_CONFIDENCE:
         return RouteResult(
             kind="grok",
@@ -184,11 +263,16 @@ def apply_gates(
             classification=classification,
         )
 
-    lights = _matching_lights(exposed, classification.target_area.choice)
+    lights, target_reason = _resolve_lights(
+        utterance, exposed, classification.target_area.choice
+    )
     if not lights:
+        kind: RouteKind = (
+            "reject" if target_reason == "no_exposed_light" else "grok"
+        )
         return RouteResult(
-            kind="reject",
-            reason="no_exposed_light",
+            kind=kind,
+            reason=target_reason or "no_named_or_area_target",
             classification=classification,
         )
 
