@@ -1,11 +1,13 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Jev Assist is already configured."
+      "already_configured": "Jev Assist is already configured.",
+      "oauth_failed": "Grok sign-in was cancelled.",
+      "reauth_successful": "Grok was reauthenticated."
     },
     "error": {
       "invalid_api_key": "Enter a non-empty API key.",
-      "oauth_failed": "Grok sign-in failed. You can retry or use an API key.",
+      "oauth_failed": "Grok sign-in failed. You can retry OAuth, use an API key, or abort.",
       "cannot_connect": "Could not reach the authentication server."
     },
     "progress": {
@@ -29,7 +31,10 @@
       },
       "oauth_failed": {
         "title": "Grok sign-in did not complete",
-        "description": "Device-code OAuth failed ({error}). Continue to enter a Grok API key as a fallback, or abort and try OAuth again."
+        "description": "Device-code OAuth failed ({error}). Retry OAuth, use a Grok API key as a fallback, or abort.",
+        "data": {
+          "oauth_recovery": "Next step"
+        }
       },
       "api_key": {
         "title": "Grok API key (fallback)",
@@ -40,7 +45,10 @@
       },
       "reauth_confirm": {
         "title": "Reauthenticate Grok",
-        "description": "Grok tokens are missing or were rejected. Sign in with Grok again (OAuth), or use an API key fallback."
+        "description": "Grok tokens are missing or were rejected. Sign in with Grok again (OAuth), or use an API key fallback.",
+        "data": {
+          "grok_auth_method": "Grok authentication"
+        }
       }
     }
   },
@@ -49,6 +57,13 @@
       "options": {
         "oauth": "Sign in with Grok (uses Grok CLI OAuth client)",
         "api_key": "Grok API key (console billing fallback)"
+      }
+    },
+    "oauth_recovery": {
+      "options": {
+        "retry_oauth": "Retry Grok OAuth",
+        "api_key": "Use a Grok API key",
+        "abort": "Abort"
       }
     }
   }

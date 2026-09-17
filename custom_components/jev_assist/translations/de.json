@@ -1,11 +1,13 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Jev Assist ist bereits eingerichtet."
+      "already_configured": "Jev Assist ist bereits eingerichtet.",
+      "oauth_failed": "Grok-Anmeldung wurde abgebrochen.",
+      "reauth_successful": "Grok wurde erneut authentifiziert."
     },
     "error": {
       "invalid_api_key": "Gib einen nicht leeren API-Schlüssel ein.",
-      "oauth_failed": "Grok-Anmeldung fehlgeschlagen. Du kannst es erneut versuchen oder einen API-Schlüssel nutzen.",
+      "oauth_failed": "Grok-Anmeldung fehlgeschlagen. Du kannst OAuth erneut versuchen, einen API-Schlüssel nutzen oder abbrechen.",
       "cannot_connect": "Der Authentifizierungsserver war nicht erreichbar."
     },
     "progress": {
@@ -29,7 +31,10 @@
       },
       "oauth_failed": {
         "title": "Grok-Anmeldung nicht abgeschlossen",
-        "description": "Device-Code-OAuth ist fehlgeschlagen ({error}). Weiter mit einem Grok-API-Schlüssel als Fallback, oder abbrechen und OAuth erneut versuchen."
+        "description": "Device-Code-OAuth ist fehlgeschlagen ({error}). OAuth erneut versuchen, einen Grok-API-Schlüssel als Fallback nutzen, oder abbrechen.",
+        "data": {
+          "oauth_recovery": "Nächster Schritt"
+        }
       },
       "api_key": {
         "title": "Grok-API-Schlüssel (Fallback)",
@@ -40,7 +45,10 @@
       },
       "reauth_confirm": {
         "title": "Grok erneut authentifizieren",
-        "description": "Grok-Tokens fehlen oder wurden abgelehnt. Melde dich erneut mit Grok an (OAuth), oder nutze einen API-Schlüssel als Fallback."
+        "description": "Grok-Tokens fehlen oder wurden abgelehnt. Melde dich erneut mit Grok an (OAuth), oder nutze einen API-Schlüssel als Fallback.",
+        "data": {
+          "grok_auth_method": "Grok-Authentifizierung"
+        }
       }
     }
   },
@@ -49,6 +57,13 @@
       "options": {
         "oauth": "Mit Grok anmelden (nutzt den Grok-CLI-OAuth-Client)",
         "api_key": "Grok-API-Schlüssel (console.x.ai-Abrechnung, Fallback)"
+      }
+    },
+    "oauth_recovery": {
+      "options": {
+        "retry_oauth": "Grok-OAuth erneut versuchen",
+        "api_key": "Grok-API-Schlüssel verwenden",
+        "abort": "Abbrechen"
       }
     }
   }

@@ -15,7 +15,9 @@ from jev_assist.const import (
 )
 from jev_assist.grok_oauth import (
     GrokOAuthError,
+    OAUTH_TRANSPORT_ERRORS,
     PkcePair,
+    access_token_needs_refresh,
     generate_pkce,
     poll_device_token,
     refresh_access_token,
@@ -208,3 +210,35 @@ async def test_poll_access_denied() -> None:
     with pytest.raises(GrokOAuthError) as exc:
         await poll_device_token(session, auth, sleep=no_sleep, monotonic=lambda: 0.0)
     assert exc.value.error == "access_denied"
+
+
+def test_access_token_needs_refresh_when_access_missing() -> None:
+    assert access_token_needs_refresh({"refresh_token": "rt"}) is True
+
+
+def test_access_token_skips_refresh_when_not_near_expiry() -> None:
+    now = 1_000_000.0
+    data = {"access_token": "at", "refresh_token": "rt", "expires_at": now + 3600}
+    assert access_token_needs_refresh(data, now=now) is False
+
+
+def test_access_token_refreshes_within_skew() -> None:
+    now = 1_000_000.0
+    data = {"access_token": "at", "refresh_token": "rt", "expires_at": now + 30}
+    assert access_token_needs_refresh(data, now=now) is True
+
+
+def test_access_token_refreshes_when_expired() -> None:
+    now = 1_000_000.0
+    data = {"access_token": "at", "refresh_token": "rt", "expires_at": now - 1}
+    assert access_token_needs_refresh(data, now=now) is True
+
+
+def test_access_token_refreshes_when_expires_at_missing() -> None:
+    assert access_token_needs_refresh({"access_token": "at", "refresh_token": "rt"}) is True
+
+
+def test_access_token_refreshes_when_expires_at_unparseable() -> None:
+    assert access_token_needs_refresh({"access_token": "at", "expires_at": "nope"}) is True
+    assert isinstance(TimeoutError("auth.x.ai unreachable"), OAUTH_TRANSPORT_ERRORS)
+    assert not isinstance(GrokOAuthError("invalid_grant", error="invalid_grant"), OAUTH_TRANSPORT_ERRORS)

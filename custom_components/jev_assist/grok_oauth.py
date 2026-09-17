@@ -11,13 +11,27 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Mapping
 
 from .const import (
+    CONF_ACCESS_TOKEN,
+    CONF_EXPIRES_AT,
     GROK_DEVICE_GRANT,
     GROK_OAUTH_CLIENT_ID,
     GROK_OAUTH_DEVICE_URL,
     GROK_OAUTH_REFERRER,
     GROK_OAUTH_SCOPES,
     GROK_OAUTH_TOKEN_URL,
+    TOKEN_EXPIRY_SKEW_SECONDS,
 )
+
+try:
+    from aiohttp import ClientError as _AiohttpClientError
+except ImportError:  # pragma: no cover - aiohttp is provided by Home Assistant
+    _AiohttpClientError = None
+
+OAUTH_TRANSPORT_ERRORS: tuple[type[BaseException], ...]
+if _AiohttpClientError is not None:
+    OAUTH_TRANSPORT_ERRORS = (_AiohttpClientError, TimeoutError)
+else:
+    OAUTH_TRANSPORT_ERRORS = (TimeoutError, ConnectionError, OSError)
 
 Sleep = Callable[[float], Awaitable[None]]
 
@@ -219,6 +233,26 @@ async def refresh_access_token(
             scope=tokens.scope,
         )
     return tokens
+
+
+def access_token_needs_refresh(
+    data: Mapping[str, Any],
+    *,
+    now: float | None = None,
+    skew_seconds: float = TOKEN_EXPIRY_SKEW_SECONDS,
+) -> bool:
+    """True when the access token is missing or within ``skew_seconds`` of expiry."""
+    if not data.get(CONF_ACCESS_TOKEN):
+        return True
+    expires_at = data.get(CONF_EXPIRES_AT)
+    if expires_at is None:
+        return True
+    try:
+        expiry = float(expires_at)
+    except (TypeError, ValueError):
+        return True
+    moment = time.time() if now is None else now
+    return expiry - float(skew_seconds) <= moment
 
 
 def token_data_updates(

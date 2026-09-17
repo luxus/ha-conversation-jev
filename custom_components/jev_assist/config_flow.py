@@ -25,13 +25,18 @@ from .const import (
     AUTH_OAUTH,
     CONF_GROK_API_KEY,
     CONF_GROK_AUTH_METHOD,
+    CONF_OAUTH_RECOVERY,
     CONF_TYPESAFE_API_KEY,
     DEFAULT_NAME,
     DOMAIN,
+    OAUTH_RECOVERY_ABORT,
+    OAUTH_RECOVERY_API_KEY,
+    OAUTH_RECOVERY_RETRY,
 )
 from .grok_oauth import (
     DeviceAuthorization,
     GrokOAuthError,
+    OAUTH_TRANSPORT_ERRORS,
     TokenSet,
     poll_device_token,
     request_device_code,
@@ -50,6 +55,14 @@ AUTH_SELECTOR = SelectSelector(
     )
 )
 
+OAUTH_RECOVERY_SELECTOR = SelectSelector(
+    SelectSelectorConfig(
+        options=[OAUTH_RECOVERY_RETRY, OAUTH_RECOVERY_API_KEY, OAUTH_RECOVERY_ABORT],
+        mode=SelectSelectorMode.LIST,
+        translation_key="oauth_recovery",
+    )
+)
+
 USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_TYPESAFE_API_KEY): PASSWORD,
@@ -57,7 +70,19 @@ USER_SCHEMA = vol.Schema(
     }
 )
 
+REAUTH_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_GROK_AUTH_METHOD, default=AUTH_OAUTH): AUTH_SELECTOR,
+    }
+)
+
 API_KEY_SCHEMA = vol.Schema({vol.Required(CONF_GROK_API_KEY): PASSWORD})
+
+OAUTH_FAILED_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_OAUTH_RECOVERY, default=OAUTH_RECOVERY_RETRY): OAUTH_RECOVERY_SELECTOR,
+    }
+)
 
 
 class JevAssistConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -105,8 +130,13 @@ class JevAssistConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._oauth_task is None:
             try:
                 self._device = await request_device_code(session)
-            except GrokOAuthError:
-                _LOGGER.exception("Grok device-code start failed")
+            except GrokOAuthError as err:
+                _LOGGER.warning("Grok device-code start failed: %s", err)
+                self._oauth_error = err.error or "oauth_failed"
+                return await self.async_step_oauth_failed()
+            except OAUTH_TRANSPORT_ERRORS as err:
+                _LOGGER.warning("Grok device-code start cannot connect: %s", err)
+                self._oauth_error = "cannot_connect"
                 return await self.async_step_oauth_failed()
             self._oauth_task = self.hass.async_create_task(
                 poll_device_token(session, self._device)
@@ -121,6 +151,10 @@ class JevAssistConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except GrokOAuthError as err:
             _LOGGER.warning("Grok OAuth poll failed: %s", err)
             self._oauth_error = err.error or "oauth_failed"
+            return self.async_show_progress_done(next_step_id="oauth_failed")
+        except OAUTH_TRANSPORT_ERRORS as err:
+            _LOGGER.warning("Grok OAuth poll cannot connect: %s", err)
+            self._oauth_error = "cannot_connect"
             return self.async_show_progress_done(next_step_id="oauth_failed")
         except Exception:  # noqa: BLE001
             _LOGGER.exception("Grok OAuth poll crashed")
@@ -155,14 +189,34 @@ class JevAssistConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
+    def _reset_oauth(self) -> None:
+        task = self._oauth_task
+        if task is not None and not task.done():
+            task.cancel()
+        self._oauth_task = None
+        self._device = None
+        self._tokens = None
+        self._oauth_error = None
+
     async def async_step_oauth_failed(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """OAuth entitlement missing / poll failed → optional API-key fallback."""
+        """OAuth failed: retry OAuth, fall back to API key, or abort."""
         if user_input is not None:
-            return await self.async_step_api_key()
+            action = user_input.get(CONF_OAUTH_RECOVERY, OAUTH_RECOVERY_RETRY)
+            if action == OAUTH_RECOVERY_API_KEY:
+                return await self.async_step_api_key()
+            if action == OAUTH_RECOVERY_ABORT:
+                return self.async_abort(reason="oauth_failed")
+            self._reset_oauth()
+            return await self.async_step_oauth()
+        errors: dict[str, str] = {}
+        if self._oauth_error == "cannot_connect":
+            errors["base"] = "cannot_connect"
         return self.async_show_form(
             step_id="oauth_failed",
+            data_schema=OAUTH_FAILED_SCHEMA,
+            errors=errors,
             description_placeholders={"error": self._oauth_error or "oauth_failed"},
         )
 
@@ -190,19 +244,29 @@ class JevAssistConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     def _create(self, data: dict[str, Any]) -> FlowResult:
+        if self.source == config_entries.SOURCE_REAUTH:
+            return self.async_update_reload_and_abort(
+                self._get_reauth_entry(),
+                data_updates=data,
+            )
         return self.async_create_entry(title=DEFAULT_NAME, data=data)
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
         """Re-run Grok OAuth (or API-key fallback) when tokens fail."""
         self._typesafe_api_key = entry_data.get(CONF_TYPESAFE_API_KEY)
+        await self.async_set_unique_id(DOMAIN)
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         if user_input is None:
-            return self.async_show_form(step_id="reauth_confirm")
+            return self.async_show_form(
+                step_id="reauth_confirm",
+                data_schema=REAUTH_SCHEMA,
+            )
         method = user_input.get(CONF_GROK_AUTH_METHOD, AUTH_OAUTH)
         if method == AUTH_API_KEY:
             return await self.async_step_api_key()
+        self._reset_oauth()
         return await self.async_step_oauth()
