@@ -1,0 +1,55 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Jev Assist ist bereits eingerichtet."
+    },
+    "error": {
+      "invalid_api_key": "Gib einen nicht leeren API-Schlüssel ein.",
+      "oauth_failed": "Grok-Anmeldung fehlgeschlagen. Du kannst es erneut versuchen oder einen API-Schlüssel nutzen.",
+      "cannot_connect": "Der Authentifizierungsserver war nicht erreichbar."
+    },
+    "progress": {
+      "oauth_wait": "Mit Grok anmelden (nutzt den Grok-CLI-OAuth-Client).\n\nÖffne {url} und gib diesen Code ein: **{user_code}**."
+    },
+    "step": {
+      "user": {
+        "title": "Jev Assist",
+        "description": "TypeSafe/Jev nutzt einen API-Schlüssel. Die Grok-Anmeldung ist standardmäßig OAuth (öffentlicher Grok-CLI-Client). Ein API-Schlüssel ist nur Fallback, wenn die OAuth-Berechtigung fehlt oder du über console.x.ai abrechnest.",
+        "data": {
+          "typesafe_api_key": "TypeSafe-API-Schlüssel",
+          "grok_auth_method": "Grok-Authentifizierung"
+        },
+        "data_description": {
+          "typesafe_api_key": "Aus der TypeSafe-Konsole. Wird im Home-Assistant-Config-Eintrag gespeichert.",
+          "grok_auth_method": "Primär: Mit Grok anmelden (nutzt den Grok-CLI-OAuth-Client). Fallback: API-Schlüssel für https://api.x.ai."
+        }
+      },
+      "oauth": {
+        "title": "Mit Grok anmelden (nutzt den Grok-CLI-OAuth-Client)"
+      },
+      "oauth_failed": {
+        "title": "Grok-Anmeldung nicht abgeschlossen",
+        "description": "Device-Code-OAuth ist fehlgeschlagen ({error}). Weiter mit einem Grok-API-Schlüssel als Fallback, oder abbrechen und OAuth erneut versuchen."
+      },
+      "api_key": {
+        "title": "Grok-API-Schlüssel (Fallback)",
+        "description": "Nutze einen console.x.ai-API-Schlüssel, wenn die OAuth-Berechtigung fehlt oder du über die Developer-API unter https://api.x.ai abrechnest. Das ist nicht der Standard.",
+        "data": {
+          "grok_api_key": "Grok-API-Schlüssel"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Grok erneut authentifizieren",
+        "description": "Grok-Tokens fehlen oder wurden abgelehnt. Melde dich erneut mit Grok an (OAuth), oder nutze einen API-Schlüssel als Fallback."
+      }
+    }
+  },
+  "selector": {
+    "grok_auth_method": {
+      "options": {
+        "oauth": "Mit Grok anmelden (nutzt den Grok-CLI-OAuth-Client)",
+        "api_key": "Grok-API-Schlüssel (console.x.ai-Abrechnung, Fallback)"
+      }
+    }
+  }
+}
