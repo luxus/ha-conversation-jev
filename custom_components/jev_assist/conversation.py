@@ -20,7 +20,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN, GROK_HANDOFF_UNAVAILABLE_SPEECH
 from .exposure import should_expose_compat, sort_lights_first
 from .grok_handoff import (
-    async_handoff_to_conversation_agent,
+    async_try_handoff_to_conversation_agent,
     resolve_grok_handoff_agent_id,
 )
 from .jev_router import ExposedEntity, RouteResult, route
@@ -99,19 +99,33 @@ class JevAssistConversationEntity(
             language=user_input.language or self.hass.config.language,
             client=runtime.jev,
         )
-        _LOGGER.debug("Jev route kind=%s reason=%s", routed.kind, routed.reason)
+        if routed.kind == "fast_service":
+            _LOGGER.debug("Jev route kind=%s reason=%s", routed.kind, routed.reason)
+        else:
+            _LOGGER.info("Jev route kind=%s reason=%s", routed.kind, routed.reason)
 
         if routed.kind == "grok":
             # Target agent owns ChatLog content on success; attach only on local fallback.
             try:
-                return await self._async_handoff_to_grok(user_input)
-            except ValueError as err:
-                agent_id = resolve_grok_handoff_agent_id(self.entry)
-                _LOGGER.error("Grok handoff to %s failed: %s", agent_id, err)
-                speech = GROK_HANDOFF_UNAVAILABLE_SPEECH
-                result = _speech_result(user_input, speech)
-                _attach_assistant(chat_log, user_input, speech)
-                return result
+                handed, speech = await self._async_handoff_to_grok(
+                    user_input,
+                    route_kind=routed.kind,
+                    route_reason=routed.reason,
+                )
+            except Exception as err:  # noqa: BLE001 — never raise into Assist
+                _LOGGER.info(
+                    "Grok handoff failed kind=%s reason=%s: %s",
+                    routed.kind,
+                    routed.reason,
+                    err,
+                )
+                handed, speech = None, GROK_HANDOFF_UNAVAILABLE_SPEECH
+            if handed is not None:
+                return handed
+            speech = speech or GROK_HANDOFF_UNAVAILABLE_SPEECH
+            result = _speech_result(user_input, speech)
+            _attach_assistant(chat_log, user_input, speech)
+            return result
 
         if routed.kind == "fast_service" and routed.domain and routed.service:
             await self.hass.services.async_call(
@@ -130,13 +144,20 @@ class JevAssistConversationEntity(
         return result
 
     async def _async_handoff_to_grok(
-        self, user_input: conversation.ConversationInput
-    ) -> conversation.ConversationResult:
-        return await async_handoff_to_conversation_agent(
+        self,
+        user_input: conversation.ConversationInput,
+        *,
+        route_kind: str,
+        route_reason: str,
+    ) -> tuple[conversation.ConversationResult | None, str | None]:
+        agent_id = resolve_grok_handoff_agent_id(self.entry)
+        return await async_try_handoff_to_conversation_agent(
             self.hass,
             user_input,
-            agent_id=resolve_grok_handoff_agent_id(self.entry),
+            agent_id=agent_id,
             converse=conversation.async_converse,
+            route_kind=route_kind,
+            route_reason=route_reason,
         )
 
 

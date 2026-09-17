@@ -183,15 +183,21 @@ def _name_matched_lights(
     return [item for item in lights if _entity_name_tokens(item) & uttered]
 
 
+_SOLE_LIGHT_FAST_ACTIONS = frozenset({"turn_on", "turn_off", "toggle"})
+
+
 def _resolve_lights(
     utterance: str,
     exposed: Sequence[ExposedEntity],
     target_area: str,
+    *,
+    action: str | None = None,
 ) -> tuple[list[ExposedEntity], str | None]:
     """Resolve light targets. Never fire all exposed lights on ``none`` alone.
 
-    Fast path requires an explicit area (not none/unknown) or a name-token
-    match. Otherwise the caller should Grok, not whole-home.
+    Fast path requires an explicit area (not none/unknown), a name-token
+    match, or exactly one Assist-exposed light for ``turn_on`` / ``turn_off`` /
+    ``toggle``. Otherwise the caller should Grok, not whole-home.
     """
     lights = [item for item in exposed if item.domain == DOMAIN_LIGHT]
     if target_area == TARGET_UNKNOWN:
@@ -205,6 +211,8 @@ def _resolve_lights(
     named = _name_matched_lights(utterance, lights)
     if named:
         return named, None
+    if action in _SOLE_LIGHT_FAST_ACTIONS and len(lights) == 1:
+        return lights, None
     return [], "no_named_or_area_target"
 
 
@@ -264,7 +272,10 @@ def apply_gates(
         )
 
     lights, target_reason = _resolve_lights(
-        utterance, exposed, classification.target_area.choice
+        utterance,
+        exposed,
+        classification.target_area.choice,
+        action=classification.action.choice,
     )
     if not lights:
         kind: RouteKind = (

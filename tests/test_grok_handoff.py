@@ -18,6 +18,7 @@ from jev_assist.const import (
 from jev_assist.grok_handoff import (
     async_converse_kwargs,
     async_handoff_to_conversation_agent,
+    async_try_handoff_to_conversation_agent,
     filter_supported_kwargs,
     is_self_handoff,
     resolve_grok_handoff_agent_id,
@@ -28,8 +29,10 @@ def test_conversation_entity_wires_async_converse() -> None:
     source = Path("custom_components/jev_assist/conversation.py").read_text(
         encoding="utf-8"
     )
-    assert "async_handoff_to_conversation_agent" in source
+    assert "async_try_handoff_to_conversation_agent" in source
     assert "conversation.async_converse" in source
+    assert "except Exception" in source
+    assert "GROK_HANDOFF_UNAVAILABLE_SPEECH" in source
     assert "Grok path (" not in source
 
 
@@ -228,3 +231,54 @@ async def test_handoff_propagates_missing_agent() -> None:
             agent_id=GROK_HANDOFF_AGENT_ID,
             converse=converse,
         )
+
+
+@pytest.mark.asyncio
+async def test_try_handoff_runtime_error_returns_speech_not_raise(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    converse = AsyncMock(side_effect=RuntimeError("agent lookup exploded"))
+    with caplog.at_level("INFO"):
+        result, speech = await async_try_handoff_to_conversation_agent(
+            object(),
+            FakeInput(),
+            agent_id=GROK_HANDOFF_AGENT_ID,
+            converse=converse,
+            route_kind="grok",
+            route_reason="no_named_or_area_target",
+        )
+    assert result is None
+    assert speech == GROK_HANDOFF_UNAVAILABLE_SPEECH
+    assert "kind=grok" in caplog.text
+    assert "reason=no_named_or_area_target" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_try_handoff_value_error_returns_speech_not_raise() -> None:
+    converse = AsyncMock(side_effect=ValueError("Agent conversation.spacexai_grok not found"))
+    result, speech = await async_try_handoff_to_conversation_agent(
+        object(),
+        FakeInput(),
+        agent_id=GROK_HANDOFF_AGENT_ID,
+        converse=converse,
+        route_kind="grok",
+        route_reason="needs_llm",
+    )
+    assert result is None
+    assert speech == GROK_HANDOFF_UNAVAILABLE_SPEECH
+
+
+@pytest.mark.asyncio
+async def test_try_handoff_success_returns_converse_result() -> None:
+    handed = object()
+    converse = AsyncMock(return_value=handed)
+    result, speech = await async_try_handoff_to_conversation_agent(
+        object(),
+        FakeInput(),
+        agent_id=GROK_HANDOFF_AGENT_ID,
+        converse=converse,
+        route_kind="grok",
+        route_reason="needs_llm",
+    )
+    assert result is handed
+    assert speech is None

@@ -32,7 +32,7 @@ After setup, pick **Jev Assist** as the conversation agent in an Assist pipeline
 - Jev questions (DE/EN) live in `criteria.py` and are sent via the official `typesafe-sdk` (`AsyncTypeSafeClient.system_one`, model `jev-latest`).
 - Router kinds: `fast_service` | `grok` | `reject` (gates in `CONTRACT.md` / `const.py`: `FAST_MIN_CONFIDENCE=0.80`, `NOUL_YES_THRESHOLD=0.55`).
 - Fast path maps light `turn_on` / `turn_off` / `toggle` / `set_brightness` (brightness regex in `light_map.py`).
-- Whole-home safety: `target_area=none` never fires all exposed lights; needs a name-token match or an explicit area.
+- Whole-home safety: `target_area=none` never fires all exposed lights. Needs a name-token match, an explicit area, or exactly one Assist-exposed light for `turn_on` / `turn_off` / `toggle`.
 - Grok path: `conversation.async_converse` to `conversation.spacexai_grok` (`GROK_HANDOFF_AGENT_ID`; override with config-entry `grok_handoff_agent_id`). No TTS/STT/chat stack inside Jev.
 
 ## Tests

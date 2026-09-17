@@ -7,7 +7,11 @@ import logging
 from collections.abc import Mapping
 from typing import Any
 
-from .const import CONF_GROK_HANDOFF_AGENT_ID, GROK_HANDOFF_AGENT_ID
+from .const import (
+    CONF_GROK_HANDOFF_AGENT_ID,
+    GROK_HANDOFF_AGENT_ID,
+    GROK_HANDOFF_UNAVAILABLE_SPEECH,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -92,3 +96,37 @@ async def async_handoff_to_conversation_agent(
     kwargs = filter_supported_kwargs(converse, async_converse_kwargs(user_input, agent_id))
     _LOGGER.debug("Handing off to conversation agent %s", agent_id)
     return await converse(hass, **kwargs)
+
+
+async def async_try_handoff_to_conversation_agent(
+    hass: Any,
+    user_input: Any,
+    *,
+    agent_id: str,
+    converse: Any,
+    route_kind: str = "grok",
+    route_reason: str = "",
+) -> tuple[Any | None, str | None]:
+    """Handoff to Grok. Never raises into the Assist pipeline.
+
+    Returns ``(converse_result, None)`` on success, or
+    ``(None, GROK_HANDOFF_UNAVAILABLE_SPEECH)`` on any failure (missing agent,
+    lookup errors, ``RuntimeError``, and other non-``ValueError`` exceptions).
+    """
+    try:
+        result = await async_handoff_to_conversation_agent(
+            hass,
+            user_input,
+            agent_id=agent_id,
+            converse=converse,
+        )
+    except Exception as err:  # noqa: BLE001 — Assist must get speech, not a crash
+        _LOGGER.info(
+            "Grok handoff failed kind=%s reason=%s agent_id=%s: %s",
+            route_kind,
+            route_reason,
+            agent_id,
+            err,
+        )
+        return None, GROK_HANDOFF_UNAVAILABLE_SPEECH
+    return result, None
