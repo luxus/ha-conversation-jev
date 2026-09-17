@@ -1,0 +1,69 @@
+"""Shared fakes for Jev router tests."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Sequence
+
+from jev_assist.jev_router import (
+    ChoiceView,
+    ExposedEntity,
+    JevClassification,
+    NoulView,
+)
+
+LIVING_LAMP = ExposedEntity(
+    entity_id="light.living_lamp",
+    domain="light",
+    name="Living lamp",
+    area="Living room",
+)
+
+
+def choice(label: str, confidence: float = 0.95) -> ChoiceView:
+    return ChoiceView(choice=label, confidence=confidence, probabilities={label: confidence})
+
+
+def noul(p_yes: float) -> NoulView:
+    return NoulView(noul=p_yes)
+
+
+def classification(
+    *,
+    category: str = "command",
+    category_c: float = 0.95,
+    domain: str = "light",
+    domain_c: float = 0.95,
+    action: str = "turn_off",
+    action_c: float = 0.95,
+    target_area: str = "Living room",
+    target_c: float = 0.95,
+    needs_llm: float = 0.05,
+    is_compound: float = 0.05,
+) -> JevClassification:
+    return JevClassification(
+        category=choice(category, category_c),
+        domain=choice(domain, domain_c),
+        action=choice(action, action_c),
+        target_area=choice(target_area, target_c),
+        needs_llm=noul(needs_llm),
+        is_compound=noul(is_compound),
+    )
+
+
+@dataclass
+class FakeJevClient:
+    result: JevClassification
+    last_utterance: str | None = None
+    last_language: str | None = None
+
+    async def classify(
+        self,
+        utterance: str,
+        exposed: Sequence[ExposedEntity],
+        *,
+        language: str,
+    ) -> JevClassification:
+        self.last_utterance = utterance
+        self.last_language = language
+        return self.result
