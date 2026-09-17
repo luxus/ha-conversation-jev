@@ -13,7 +13,7 @@ Manual install: copy `custom_components/jev_assist/` into your HA `config/custom
 
 ## Configuration
 
-1. **TypeSafe API key** (required) — stored on the config entry, not in `configuration.yaml`.
+1. **TypeSafe / Jev API key** (required, from [typesafe.ai](https://typesafe.ai); the same key if issued via Vercel) — stored on the config entry, not in `configuration.yaml`.
 2. **Grok (primary): Sign in with Grok (uses Grok CLI OAuth client)**  
    Device-code + PKCE against `https://auth.x.ai` via shared package
    [`ha_spacexai_auth`](https://github.com/luxus/ha-spacexai-auth)

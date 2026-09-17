@@ -1,4 +1,4 @@
-"""Config flow: TypeSafe API key + Grok CLI OAuth (device code) first."""
+"""Config flow: TypeSafe/Jev API key (typesafe.ai) + Grok CLI OAuth first."""
 
 from __future__ import annotations
 
@@ -110,7 +110,7 @@ class JevAssistConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Collect TypeSafe API key; Grok OAuth is the default next step."""
+        """Collect TypeSafe/Jev API key from typesafe.ai; Grok OAuth is next."""
         errors: dict[str, str] = {}
         if user_input is not None:
             key = str(user_input[CONF_TYPESAFE_API_KEY]).strip()
