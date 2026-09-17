@@ -16,13 +16,13 @@
     "step": {
       "user": {
         "title": "Jev Assist",
-        "description": "TypeSafe/Jev nutzt einen API-Schlüssel. Die Grok-Anmeldung ist standardmäßig OAuth (öffentlicher Grok-CLI-Client). Ein API-Schlüssel ist nur Fallback, wenn die OAuth-Berechtigung fehlt oder du über console.x.ai abrechnest.",
+        "description": "TypeSafe/Jev nutzt einen API-Schlüssel von typesafe.ai (derselbe Schlüssel, falls über Vercel ausgestellt). Die Grok-Anmeldung ist standardmäßig OAuth (öffentlicher Grok-CLI-Client). Ein Grok-API-Schlüssel ist nur Fallback, wenn die OAuth-Berechtigung fehlt oder du über console.x.ai abrechnest.",
         "data": {
-          "typesafe_api_key": "TypeSafe-API-Schlüssel",
+          "typesafe_api_key": "TypeSafe-/Jev-API-Schlüssel (typesafe.ai)",
           "grok_auth_method": "Grok-Authentifizierung"
         },
         "data_description": {
-          "typesafe_api_key": "Aus der TypeSafe-Konsole. Wird im Home-Assistant-Config-Eintrag gespeichert.",
+          "typesafe_api_key": "Von typesafe.ai (maßgebliche Quelle). Derselbe Schlüssel, falls über Vercel ausgestellt. Wird im Home-Assistant-Config-Eintrag gespeichert.",
           "grok_auth_method": "Primär: Mit Grok anmelden (nutzt den Grok-CLI-OAuth-Client). Fallback: API-Schlüssel für https://api.x.ai."
         }
       },

@@ -16,13 +16,13 @@
     "step": {
       "user": {
         "title": "Jev Assist",
-        "description": "TypeSafe/Jev uses an API key. Grok sign-in is OAuth by default (Grok CLI public client). An API key is only a fallback when OAuth entitlement is missing or you bill via console.x.ai.",
+        "description": "TypeSafe/Jev uses an API key from typesafe.ai (the same key if issued via Vercel). Grok sign-in is OAuth by default (Grok CLI public client). A Grok API key is only a fallback when OAuth entitlement is missing or you bill via console.x.ai.",
         "data": {
-          "typesafe_api_key": "TypeSafe API key",
+          "typesafe_api_key": "TypeSafe / Jev API key (typesafe.ai)",
           "grok_auth_method": "Grok authentication"
         },
         "data_description": {
-          "typesafe_api_key": "From the TypeSafe console. Stored in the Home Assistant config entry.",
+          "typesafe_api_key": "From typesafe.ai (source of truth). The same key if it was issued via Vercel. Stored in the Home Assistant config entry.",
           "grok_auth_method": "Primary: Sign in with Grok (uses Grok CLI OAuth client). Fallback: API key for https://api.x.ai."
         }
       },
