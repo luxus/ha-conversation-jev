@@ -17,7 +17,7 @@ from homeassistant.helpers import (
 )
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, GROK_HANDOFF_UNAVAILABLE_SPEECH
+from .const import DOMAIN, GROK_HANDOFF_UNAVAILABLE_SPEECH, ROUTE_FAILURE_SPEECH
 from .exposure import should_expose_compat, sort_lights_first
 from .grok_handoff import (
     async_try_handoff_to_conversation_agent,
@@ -91,8 +91,33 @@ class JevAssistConversationEntity(
         *,
         chat_log: conversation.ChatLog | None,
     ) -> conversation.ConversationResult:
+        try:
+            return await self._async_route_and_act_inner(
+                user_input, chat_log=chat_log
+            )
+        except Exception:  # noqa: BLE001 — never raise into Assist
+            _LOGGER.error(
+                "Jev route-and-act failed text=%r",
+                getattr(user_input, "text", None),
+                exc_info=True,
+            )
+            speech = ROUTE_FAILURE_SPEECH
+            result = _speech_result(user_input, speech)
+            _attach_assistant(chat_log, user_input, speech)
+            return result
+
+    async def _async_route_and_act_inner(
+        self,
+        user_input: conversation.ConversationInput,
+        *,
+        chat_log: conversation.ChatLog | None,
+    ) -> conversation.ConversationResult:
         runtime = self.hass.data[DOMAIN][self.entry.entry_id]
-        exposed = _exposed_entities(self.hass)
+        try:
+            exposed = _exposed_entities(self.hass)
+        except Exception:  # noqa: BLE001 — registry/expose must not crash Assist
+            _LOGGER.error("Jev exposed-entity collection failed", exc_info=True)
+            exposed = []
         routed: RouteResult = await route(
             user_input.text,
             exposed,
@@ -128,16 +153,26 @@ class JevAssistConversationEntity(
             return result
 
         if routed.kind == "fast_service" and routed.domain and routed.service:
-            await self.hass.services.async_call(
-                routed.domain,
-                routed.service,
-                routed.service_data or {},
-                blocking=True,
-                context=user_input.context,
-            )
-            speech = "OK"
+            try:
+                await self.hass.services.async_call(
+                    routed.domain,
+                    routed.service,
+                    routed.service_data or {},
+                    blocking=True,
+                    context=user_input.context,
+                )
+            except Exception:  # noqa: BLE001 — service failure → speech, not crash
+                _LOGGER.error(
+                    "Jev fast_service %s.%s failed",
+                    routed.domain,
+                    routed.service,
+                    exc_info=True,
+                )
+                speech = ROUTE_FAILURE_SPEECH
+            else:
+                speech = "OK"
         else:
-            speech = "I can't help with that."
+            speech = ROUTE_FAILURE_SPEECH
 
         result = _speech_result(user_input, speech)
         _attach_assistant(chat_log, user_input, speech)

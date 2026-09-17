@@ -55,6 +55,10 @@ Grok handoff (`conversation.async_converse` / agent lookup) must **never** raise
 into the Assist pipeline. Any failure speaks `GROK_HANDOFF_UNAVAILABLE_SPEECH`
 and logs route `kind` + `reason` at INFO.
 
+Jev classify / `route()` / exposed-entity collection / `fast_service` `async_call`
+must **never** raise into the Assist pipeline. Unexpected exceptions are logged at
+ERROR with traceback and Assist speaks `ROUTE_FAILURE_SPEECH`.
+
 ## Light map v0
 
 Action keys: `turn_on | turn_off | toggle | set_brightness | other`.

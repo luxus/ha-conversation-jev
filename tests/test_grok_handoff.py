@@ -14,6 +14,7 @@ from jev_assist.const import (
     CONF_GROK_HANDOFF_AGENT_ID,
     GROK_HANDOFF_AGENT_ID,
     GROK_HANDOFF_UNAVAILABLE_SPEECH,
+    ROUTE_FAILURE_SPEECH,
 )
 from jev_assist.grok_handoff import (
     async_converse_kwargs,
@@ -33,7 +34,12 @@ def test_conversation_entity_wires_async_converse() -> None:
     assert "conversation.async_converse" in source
     assert "except Exception" in source
     assert "GROK_HANDOFF_UNAVAILABLE_SPEECH" in source
+    assert "ROUTE_FAILURE_SPEECH" in source
     assert "Grok path (" not in source
+
+
+def test_route_failure_speech_constant() -> None:
+    assert ROUTE_FAILURE_SPEECH == "I can't help with that."
 
 
 def test_default_handoff_agent_id() -> None:
