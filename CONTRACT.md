@@ -38,16 +38,22 @@ Do not add categories until climate/cover get a `fast_service` map.
 
 ## Target resolution (whole-home safety)
 
-`target_area=none` **must not** fire every Assist-exposed light.
+`target_area=none` **must not** fire every Assist-exposed light when more than
+one light is exposed.
 
-Fast path requires **either**:
+Fast path requires **one of**:
 
-1. an **explicit area** (not `none` / `unknown`), scoped to lights in that area, or
-2. a **name-token** match against entity name / aliases / object id (generic words like “light”/“lamp” do not count).
+1. an **explicit area** (not `none` / `unknown`), scoped to lights in that area,
+2. a **name-token** match against entity name / aliases / object id (generic words like “light”/“lamp” do not count), or
+3. **exactly one** Assist-exposed light, and the action is `turn_on` / `turn_off` / `toggle` (no name or area needed). `set_brightness` still needs a name or area.
 
-If neither → **`grok`** with reason `no_named_or_area_target`. Never blind whole-home.
+If none of those → **`grok`** with reason `no_named_or_area_target`. Never fire all lights.
 
 `unknown` area → Grok. Explicit area with no matching exposed light → reject.
+
+Grok handoff (`conversation.async_converse` / agent lookup) must **never** raise
+into the Assist pipeline. Any failure speaks `GROK_HANDOFF_UNAVAILABLE_SPEECH`
+and logs route `kind` + `reason` at INFO.
 
 ## Light map v0
 
@@ -84,5 +90,6 @@ same `text`, `conversation_id`, `context`, `language`, `device_id`,
 `satellite_id`, and `extra_system_prompt` are forwarded.
 
 Jev does **not** run TTS, STT, or a Grok chat stack. Override the target with
-config-entry option/data key `grok_handoff_agent_id`. If the agent is missing
-or the target is this agent, Assist gets `Grok is not available.`
+config-entry option/data key `grok_handoff_agent_id`. If the agent is missing,
+the target is this agent, or handoff raises any exception, Assist gets
+`Grok is not available.` — never an uncaught error in the pipeline.
