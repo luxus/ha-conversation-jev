@@ -7,6 +7,14 @@ import logging
 from typing import Any
 
 import voluptuous as vol
+from ha_spacexai_auth import (
+    DeviceAuthorization,
+    SpaceXaiAuthError,
+    TokenSet,
+    poll_device_token,
+    request_device_code,
+    token_data_updates,
+)
 
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
@@ -33,17 +41,19 @@ from .const import (
     OAUTH_RECOVERY_API_KEY,
     OAUTH_RECOVERY_RETRY,
 )
-from .grok_oauth import (
-    DeviceAuthorization,
-    GrokOAuthError,
-    OAUTH_TRANSPORT_ERRORS,
-    TokenSet,
-    poll_device_token,
-    request_device_code,
-    token_data_updates,
-)
 
 _LOGGER = logging.getLogger(__name__)
+
+try:
+    from aiohttp import ClientError as _AiohttpClientError
+except ImportError:  # pragma: no cover - aiohttp is provided by Home Assistant
+    _AiohttpClientError = None
+
+OAUTH_TRANSPORT_ERRORS: tuple[type[BaseException], ...]
+if _AiohttpClientError is not None:
+    OAUTH_TRANSPORT_ERRORS = (_AiohttpClientError, TimeoutError)
+else:
+    OAUTH_TRANSPORT_ERRORS = (TimeoutError, ConnectionError, OSError)
 
 PASSWORD = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 
@@ -130,7 +140,7 @@ class JevAssistConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._oauth_task is None:
             try:
                 self._device = await request_device_code(session)
-            except GrokOAuthError as err:
+            except SpaceXaiAuthError as err:
                 _LOGGER.warning("Grok device-code start failed: %s", err)
                 self._oauth_error = err.error or "oauth_failed"
                 return await self.async_step_oauth_failed()
@@ -148,7 +158,7 @@ class JevAssistConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             self._tokens = self._oauth_task.result()
-        except GrokOAuthError as err:
+        except SpaceXaiAuthError as err:
             _LOGGER.warning("Grok OAuth poll failed: %s", err)
             self._oauth_error = err.error or "oauth_failed"
             return self.async_show_progress_done(next_step_id="oauth_failed")

@@ -15,10 +15,12 @@ Manual install: copy `custom_components/jev_assist/` into your HA `config/custom
 
 1. **TypeSafe API key** (required) — stored on the config entry, not in `configuration.yaml`.
 2. **Grok (primary): Sign in with Grok (uses Grok CLI OAuth client)**  
-   Device-code + PKCE against `https://auth.x.ai` using the public Grok CLI `client_id`
+   Device-code + PKCE against `https://auth.x.ai` via shared package
+   [`ha_spacexai_auth`](https://github.com/luxus/ha-spacexai-auth)
+   (`start_device_auth` / `poll_token` / `ensure_fresh`) using the public Grok CLI `client_id`
    `b1a00492-073a-47ea-816f-4c329264a828`
    (verified against `xai-org/grok-build` `crates/codegen/xai-grok-login/src/config.rs`).
-   Home Assistant shows a URL and user code, polls the token endpoint, and stores **access + refresh** tokens. If the IdP rotates the refresh token, the new one is persisted.
+   Home Assistant shows a URL and user code, polls the token endpoint, and stores **access + refresh** tokens. Setup/reload calls `ensure_fresh` (refresh only near expiry). If the IdP rotates the refresh token, the new one is persisted.
 3. **Grok (optional fallback): API key** for `https://api.x.ai` when OAuth entitlement is missing or you bill via console.x.ai.
 
 This integration does **not** use Home Assistant Application Credentials.

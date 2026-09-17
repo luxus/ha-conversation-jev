@@ -57,7 +57,12 @@ Only the first four map to HA `light` services. Brightness percent is parsed in
 
 ## Grok OAuth client
 
-Public Grok CLI `client_id` (leave unchanged):
+Device-code + PKCE is implemented by shared package
+[`ha_spacexai_auth`](https://github.com/luxus/ha-spacexai-auth)
+(`start_device_auth` / `poll_token` / `ensure_fresh` / `TokenSet`).
+Config Flow UI stays in this integration.
+
+Public Grok CLI `client_id` (leave unchanged; re-exported from the package):
 
 `b1a00492-073a-47ea-816f-4c329264a828`
 

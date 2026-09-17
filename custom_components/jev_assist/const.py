@@ -2,6 +2,16 @@
 
 from typing import Final, Literal
 
+from ha_spacexai_auth import (
+    CLIENT_ID,
+    DEVICE_AUTHORIZATION_URL,
+    DEVICE_GRANT_TYPE,
+    ISSUER,
+    REFERRER,
+    SCOPES,
+    TOKEN_URL,
+)
+
 DOMAIN: Final = "jev_assist"
 DEFAULT_NAME: Final = "Jev Assist"
 
@@ -31,21 +41,14 @@ OAUTH_RECOVERY_ABORT: Final = "abort"
 # Refresh access tokens this many seconds before expires_at.
 TOKEN_EXPIRY_SKEW_SECONDS: Final = 60
 
-# Grok CLI public client (grok-build / auth.x.ai). No Application Credentials.
-# Verified byte-for-byte against xai-org/grok-build
-# crates/codegen/xai-grok-login/src/config.rs
-#   obfstr!("b1a00492-073a-47ea-816f-4c329264a828")
-GROK_OAUTH_ISSUER: Final = "https://auth.x.ai"
-GROK_OAUTH_CLIENT_ID: Final = "b1a00492-073a-47ea-816f-4c329264a828"
-GROK_OAUTH_DEVICE_URL: Final = f"{GROK_OAUTH_ISSUER}/oauth2/device/code"
-GROK_OAUTH_TOKEN_URL: Final = f"{GROK_OAUTH_ISSUER}/oauth2/token"
-GROK_OAUTH_SCOPES: Final = (
-    "openid profile email offline_access "
-    "grok-cli:access api:access "
-    "conversations:read conversations:write"
-)
-GROK_DEVICE_GRANT: Final = "urn:ietf:params:oauth:grant-type:device_code"
-GROK_OAUTH_REFERRER: Final = "grok-build"
+# Grok CLI public client — sourced from ha_spacexai_auth (grok-build config.rs).
+GROK_OAUTH_ISSUER: Final = ISSUER
+GROK_OAUTH_CLIENT_ID: Final = CLIENT_ID
+GROK_OAUTH_DEVICE_URL: Final = DEVICE_AUTHORIZATION_URL
+GROK_OAUTH_TOKEN_URL: Final = TOKEN_URL
+GROK_OAUTH_SCOPES: Final = SCOPES
+GROK_DEVICE_GRANT: Final = DEVICE_GRANT_TYPE
+GROK_OAUTH_REFERRER: Final = REFERRER
 GROK_API_BASE: Final = "https://api.x.ai"
 GROK_CLI_PROXY_BASE: Final = "https://cli-chat-proxy.grok.com"
 
