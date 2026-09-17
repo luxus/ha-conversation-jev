@@ -72,3 +72,5 @@ DEFAULT_LANGUAGE: Final = "en"
 GROK_HANDOFF_AGENT_ID: Final = "conversation.spacexai_grok"
 CONF_GROK_HANDOFF_AGENT_ID: Final = "grok_handoff_agent_id"
 GROK_HANDOFF_UNAVAILABLE_SPEECH: Final = "Grok is not available."
+# Spoken when classify/route/fast_service fails; never raise into Assist.
+ROUTE_FAILURE_SPEECH: Final = "I can't help with that."
