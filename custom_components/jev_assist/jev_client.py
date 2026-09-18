@@ -77,7 +77,10 @@ def build_state(
 
 def build_questions(language: str, areas: Sequence[str]) -> dict[str, Choice | Noul]:
     """Fan-out Choice/Noul questions from criteria.py."""
-    area_criteria: dict[str, str] = {area: area for area in areas}
+    # Area names may be HA ComputedNameType Enums; Choice criteria must stay JSON-safe.
+    area_criteria: dict[str, str] = {
+        _plain_text(area): _plain_text(area) for area in areas
+    }
     area_criteria[TARGET_NONE] = criteria.TARGET_AREA_NONE[language]
     area_criteria[TARGET_UNKNOWN] = criteria.TARGET_AREA_UNKNOWN[language]
     return {
