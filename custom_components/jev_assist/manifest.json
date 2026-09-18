@@ -12,5 +12,5 @@
     "typesafe-sdk>=0.6.0",
     "ha-spacexai-auth @ git+https://github.com/luxus/ha-spacexai-auth.git@main"
   ],
-  "version": "0.1.2"
+  "version": "0.1.3"
 }

@@ -85,6 +85,18 @@ class ExposedEntity:
     area: str | None = None
     aliases: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        # HA entity_registry aliases are AliasEntry = str | ComputedNameType.
+        object.__setattr__(self, "entity_id", str(self.entity_id))
+        object.__setattr__(self, "domain", str(self.domain))
+        object.__setattr__(self, "name", str(self.name))
+        object.__setattr__(
+            self, "area", None if self.area is None else str(self.area)
+        )
+        object.__setattr__(
+            self, "aliases", tuple(str(alias) for alias in self.aliases)
+        )
+
 
 @dataclass(frozen=True)
 class ChoiceView:
