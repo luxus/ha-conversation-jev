@@ -56,8 +56,8 @@ Fast path requires **one of**:
    - light: `turn_on` / `turn_off` / `toggle`
    - climate: `turn_on` / `turn_off`
    - cover: `open` / `close` / `stop` (and `turn_on` / `turn_off` aliases)
-   `set_brightness`, `set_temperature`, `set_hvac_mode`, and `set_position`
-   still need a name or area.
+   `set_brightness`, `set_temperature`, `set_hvac_mode`, `set_position`, and
+   `set_tilt` still need a name or area.
 
 If none of those → **`grok`** with reason `no_named_or_area_target`. Never fire
 all lights / climates / covers.
@@ -130,7 +130,8 @@ same whole-home safety as lights.
 
 HA services (verified against cover integration actions):
 `cover.open_cover`, `cover.close_cover`, `cover.stop_cover`,
-`cover.set_cover_position` (`position` 0–100).
+`cover.set_cover_position` (`position` 0–100),
+`cover.set_cover_tilt_position` (`tilt_position` 0–100).
 
 | Jev action | HA service | Extra data |
 |------------|------------|------------|
@@ -138,10 +139,12 @@ HA services (verified against cover integration actions):
 | `close` | `cover.close_cover` | entity ids only |
 | `stop` | `cover.stop_cover` | entity ids only |
 | `set_position` | `cover.set_cover_position` | `position` when a **percent** is clear (`%` / percent / Prozent); else Grok (`position_unparsed`) |
+| `set_tilt` | `cover.set_cover_tilt_position` | `tilt_position` when a **percent** is clear (`%` / percent / Prozent); else Grok (`tilt_unparsed`) |
 | `turn_on` / `turn_off` | aliases for open / close | when Jev reuses those keys |
 
-Tilt services, `toggle`, and relative “halfway” without a percent → Grok.
-Prefer explicit area or name-token; same whole-home safety as lights.
+`toggle`, relative “halfway” without a percent, and tilt open/close/stop
+(on/off-style) → Grok. Prefer explicit area or name-token; same whole-home
+safety as lights. `set_tilt` is percent-only — never invent a tilt value.
 
 ## Grok OAuth client
 

@@ -80,8 +80,8 @@ DOMAIN_OPTIONS: Final[dict[str, dict[str, str]]] = {
         "de": "Thermostate, HLK, Heizung, Kühlung oder Temperatursollwerte.",
     },
     "cover": {
-        "en": "Blinds, shades, garage doors, or other covers.",
-        "de": "Jalousien, Rollläden, Garagentore oder andere Cover.",
+        "en": "Blinds, shades, garage doors, slat tilt, or other covers.",
+        "de": "Jalousien, Rollläden, Garagentore, Lamellenneigung oder andere Cover.",
     },
     "media_player": {
         "en": "Speakers, TVs, or other media players.",
@@ -162,8 +162,25 @@ ACTION_OPTIONS: Final[dict[str, dict[str, str]]] = {
         "de": "Ein fahrendes Cover, Jalousie, Rollladen oder Garagentor stoppen.",
     },
     "set_position": {
-        "en": "Set a cover position to an explicit percent (0–100).",
-        "de": "Die Position eines Covers auf einen klaren Prozentwert (0–100) setzen.",
+        "en": (
+            "Set a cover lift/height position to an explicit percent (0–100), "
+            "not slat tilt."
+        ),
+        "de": (
+            "Die Lift-/Höhenposition eines Covers auf einen klaren Prozentwert "
+            "(0–100) setzen, nicht die Lamellenneigung."
+        ),
+    },
+    "set_tilt": {
+        "en": (
+            "Set cover or blind slat tilt to an explicit percent (0–100), "
+            "e.g. tilt blinds to 50% — not open/close or lift position."
+        ),
+        "de": (
+            "Die Neigung / Lamellen eines Covers auf einen klaren Prozentwert "
+            "(0–100) setzen (z. B. Lamellen auf 30%, Neigung 20 Prozent) — "
+            "nicht öffnen/schließen oder Liftposition."
+        ),
     },
     "other": {
         "en": "Any other action, or no device action applies.",
