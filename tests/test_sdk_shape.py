@@ -31,7 +31,7 @@ def test_questions_use_choice_and_noul() -> None:
     assert "Living room" in questions["target_area"].criteria
 
 
-def test_state_is_json_string() -> None:
+def test_state_is_named_json_object() -> None:
     state = build_state(
         "Licht aus",
         [
@@ -44,8 +44,10 @@ def test_state_is_json_string() -> None:
         ],
         "de",
     )
-    payload = json.loads(state)
-    assert payload["text"] == "Licht aus"
-    assert payload["language"] == "de"
-    assert payload["areas"] == ["Küche"]
-    assert payload["exposed_entities"][0]["entity_id"] == "light.a"
+    assert isinstance(state, dict)
+    assert not isinstance(state, str)
+    assert state["text"] == "Licht aus"
+    assert state["language"] == "de"
+    assert state["areas"] == ["Küche"]
+    assert state["exposed_entities"][0]["entity_id"] == "light.a"
+    json.dumps(state)

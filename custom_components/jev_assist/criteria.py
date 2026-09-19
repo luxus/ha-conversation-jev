@@ -10,11 +10,11 @@ from typing import Final
 
 CATEGORY_INSTRUCTIONS: Final[dict[str, str]] = {
     "en": (
-        "Classify the user utterance for a Home Assistant voice agent. "
+        "Classify the user utterance in `text` for a Home Assistant voice agent. "
         "Pick the single best category."
     ),
     "de": (
-        "Klassifiziere die Nutzeräußerung für einen Home-Assistant-Sprachassistenten. "
+        "Klassifiziere die Nutzeräußerung in `text` für einen Home-Assistant-Sprachassistenten. "
         "Wähle die eine passende Kategorie."
     ),
 }
@@ -53,8 +53,14 @@ CATEGORY_OPTIONS: Final[dict[str, dict[str, str]]] = {
 }
 
 DOMAIN_INSTRUCTIONS: Final[dict[str, str]] = {
-    "en": "Which Home Assistant domain is this utterance primarily targeting?",
-    "de": "Welche Home-Assistant-Domäne zielt diese Äußerung in erster Linie an?",
+    "en": (
+        "Which Home Assistant domain is `text` primarily targeting, "
+        "given `exposed_entities`?"
+    ),
+    "de": (
+        "Welche Home-Assistant-Domäne zielt `text` in erster Linie an, "
+        "gegeben `exposed_entities`?"
+    ),
 }
 
 DOMAIN_OPTIONS: Final[dict[str, dict[str, str]]] = {
@@ -94,12 +100,12 @@ DOMAIN_OPTIONS: Final[dict[str, dict[str, str]]] = {
 
 ACTION_INSTRUCTIONS: Final[dict[str, str]] = {
     "en": (
-        "Which action should be taken? Speculative: answer even if the "
-        "utterance is not a device command."
+        "Which action should be taken for `text`? Speculative: answer even if "
+        "the utterance is not a device command."
     ),
     "de": (
-        "Welche Aktion soll ausgeführt werden? Spekulativ: auch antworten, "
-        "wenn die Äußerung kein Gerätebefehl ist."
+        "Welche Aktion soll für `text` ausgeführt werden? Spekulativ: auch "
+        "antworten, wenn die Äußerung kein Gerätebefehl ist."
     ),
 }
 
@@ -164,17 +170,17 @@ ACTION_OPTIONS: Final[dict[str, dict[str, str]]] = {
 
 TARGET_AREA_INSTRUCTIONS: Final[dict[str, str]] = {
     "en": (
-        "Which area should be targeted? Use an area name from the list when "
-        "the user named a room. If the user named two or more rooms for the "
-        "same action, pick one of those named rooms — not none or unknown. "
-        "Use none when the command is house-wide or has no area. Use unknown "
-        "when the area cannot be determined."
+        "Which area should be targeted? Use an area name from `areas` when "
+        "the user named a room in `text`. If the user named two or more rooms "
+        "for the same action, pick one of those named rooms — not none or "
+        "unknown. Use none when the command is house-wide or has no area. "
+        "Use unknown when the area cannot be determined."
     ),
     "de": (
         "Welcher Bereich soll angesteuert werden? Nutze einen Bereichsnamen "
-        "aus der Liste, wenn der Nutzer einen Raum genannt hat. Wenn der "
-        "Nutzer zwei oder mehr Räume für dieselbe Aktion nennt, wähle einen "
-        "dieser genannten Räume — nicht none oder unknown. Nutze none, "
+        "aus `areas`, wenn der Nutzer in `text` einen Raum genannt hat. Wenn "
+        "der Nutzer zwei oder mehr Räume für dieselbe Aktion nennt, wähle "
+        "einen dieser genannten Räume — nicht none oder unknown. Nutze none, "
         "wenn der Befehl das ganze Haus betrifft oder keinen Bereich hat. "
         "Nutze unknown, wenn der Bereich nicht bestimmt werden kann."
     ),
@@ -192,32 +198,33 @@ TARGET_AREA_UNKNOWN: Final[dict[str, str]] = {
 
 NOUL_NEEDS_LLM: Final[dict[str, str]] = {
     "en": (
-        "The utterance needs a generative LLM (Grok) rather than a single "
-        "deterministic Home Assistant service call: questions, explanations, "
-        "planning, relative or underspecified commands, or anything that "
-        "requires generated text."
+        "The utterance in `text` needs a generative LLM (Grok) rather than a "
+        "single deterministic Home Assistant service call: questions, "
+        "explanations, planning, relative or underspecified commands, or "
+        "anything that requires generated text."
     ),
     "de": (
-        "Die Äußerung braucht ein generatives LLM (Grok) statt eines einzelnen "
-        "deterministischen Home-Assistant-Serviceaufrufs: Fragen, Erklärungen, "
-        "Planung, relative oder unterspezifizierte Befehle, oder alles, das "
-        "generierten Text erfordert."
+        "Die Äußerung in `text` braucht ein generatives LLM (Grok) statt eines "
+        "einzelnen deterministischen Home-Assistant-Serviceaufrufs: Fragen, "
+        "Erklärungen, Planung, relative oder unterspezifizierte Befehle, oder "
+        "alles, das generierten Text erfordert."
     ),
 }
 
 NOUL_IS_COMPOUND: Final[dict[str, str]] = {
     "en": (
-        "The utterance asks for more than one distinct action or targets "
-        "multiple independent device operations that should be split first. "
-        "The same action on the same domain in two or more named rooms "
-        "(for example all lights in bedroom and hallway) is a single "
-        "operation, not compound."
+        "The utterance in `text` asks for more than one distinct action or "
+        "targets multiple independent device operations that should be split "
+        "first. The same action on the same domain in two or more named rooms "
+        "from `areas` (for example all lights in bedroom and hallway) is a "
+        "single operation, not compound."
     ),
     "de": (
-        "Die Äußerung verlangt mehr als eine eigenständige Aktion oder zielt "
-        "auf mehrere unabhängige Geräteaktionen, die zuerst aufgeteilt werden "
-        "sollten. Dieselbe Aktion in derselben Domäne in zwei oder mehr "
-        "genannten Räumen (zum Beispiel alle Lichter in Schlafzimmer und Flur) "
-        "ist eine einzelne Operation, kein Compound."
+        "Die Äußerung in `text` verlangt mehr als eine eigenständige Aktion "
+        "oder zielt auf mehrere unabhängige Geräteaktionen, die zuerst "
+        "aufgeteilt werden sollten. Dieselbe Aktion in derselben Domäne in "
+        "zwei oder mehr genannten Räumen aus `areas` (zum Beispiel alle "
+        "Lichter in Schlafzimmer und Flur) ist eine einzelne Operation, "
+        "kein Compound."
     ),
 }

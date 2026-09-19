@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, Sequence
 
 from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, SystemOneResponse
@@ -54,10 +53,15 @@ def build_state(
     utterance: str,
     exposed: Sequence[ExposedEntity],
     language: str,
-) -> str:
-    """JSON-string state for system_one (preferred over a raw dict)."""
+) -> dict[str, Any]:
+    """Named JSON object for system_one so questions can backtick-path fields.
+
+    Docs prefer an object over a JSON string when state has several parts
+    (``text``, ``language``, ``exposed_entities``, ``areas``). Values are
+    coerced to plain strings so HA ComputedNameType Enums stay JSON-safe.
+    """
     capped = list(exposed)[:EXPOSED_ENTITY_CAP]
-    payload: dict[str, Any] = {
+    return {
         "text": _plain_text(utterance),
         "language": _plain_text(language),
         "exposed_entities": [
@@ -72,7 +76,6 @@ def build_state(
         ],
         "areas": unique_areas(capped),
     }
-    return json.dumps(payload, ensure_ascii=False, default=str)
 
 
 def build_questions(language: str, areas: Sequence[str]) -> dict[str, Choice | Noul]:

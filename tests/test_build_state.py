@@ -36,8 +36,8 @@ def test_build_state_coerces_computed_name_enum_aliases() -> None:
         area=COMPUTED_NAME,  # type: ignore[arg-type]
         aliases=(COMPUTED_NAME, "kitchen"),  # type: ignore[arg-type]
     )
-    raw = build_state("lichter aus", [entity], "de")
-    payload = json.loads(raw)
+    payload = build_state("lichter aus", [entity], "de")
+    assert isinstance(payload, dict)
     dumped = payload["exposed_entities"][0]
     expected = str(COMPUTED_NAME)
 

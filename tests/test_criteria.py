@@ -85,3 +85,17 @@ def test_blessed_gate_constants() -> None:
     assert FAST_MIN_CONFIDENCE == 0.80
     assert NOUL_YES_THRESHOLD == 0.55
     assert REJECT_MIN_CONFIDENCE == 0.80
+
+
+def test_instructions_backtick_state_paths() -> None:
+    """Questions point at named state fields so Jev can resolve nested paths."""
+    for lang in _LANGS:
+        assert "`text`" in criteria.CATEGORY_INSTRUCTIONS[lang]
+        assert "`text`" in criteria.DOMAIN_INSTRUCTIONS[lang]
+        assert "`exposed_entities`" in criteria.DOMAIN_INSTRUCTIONS[lang]
+        assert "`text`" in criteria.ACTION_INSTRUCTIONS[lang]
+        assert "`text`" in criteria.TARGET_AREA_INSTRUCTIONS[lang]
+        assert "`areas`" in criteria.TARGET_AREA_INSTRUCTIONS[lang]
+        assert "`text`" in criteria.NOUL_NEEDS_LLM[lang]
+        assert "`text`" in criteria.NOUL_IS_COMPOUND[lang]
+        assert "`areas`" in criteria.NOUL_IS_COMPOUND[lang]
