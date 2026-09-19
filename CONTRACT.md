@@ -20,7 +20,7 @@ Choice keys are frozen at **`command | conversation | reject`**.
 | Jev category | Route |
 |--------------|--------|
 | `command` | Fast path if gates + domain map + target resolution pass; otherwise Grok |
-| `conversation` | Grok (includes former `home_query` — questions / info, not a device service) |
+| `conversation` | Grok with reason `conversation` when confidence ≥ `FAST_MIN_CONFIDENCE` (includes former `home_query` — questions / info, not a device service) |
 | `reject` | Reject when confidence ≥ `REJECT_MIN_CONFIDENCE` (includes `out_of_scope`) |
 
 Compound utterances are **not** a fourth category: they are the `is_compound` Noul.
@@ -33,8 +33,9 @@ Do not add categories. Switch / lock / scene / other remain Grok.
 
 | constant | value | use |
 |----------|-------|-----|
-| `FAST_MIN_CONFIDENCE` | **0.80** | Minimum Choice confidence for command / domain / action / target_area on the fast path |
+| `FAST_MIN_CONFIDENCE` | **0.80** | Minimum Choice confidence for command / domain / action / target_area on the fast path; also for `category=conversation` → Grok and `scope=whole_home` override |
 | `NOUL_YES_THRESHOLD` | **0.55** | `needs_llm` or `is_compound` `.noul` (P(yes)) at or above this → Grok (unless multi-area same-action) |
+| `NOUL_UNSURE_LOW` | **0.40** | Noul has no `confidence`. Values in `[0.40, 0.55)` are treated as unsure (yes ≈ no) → Grok, same exceptions as yes |
 | `REJECT_MIN_CONFIDENCE` | 0.80 | `category=reject` at or above this → reject |
 
 ## Target resolution (whole-home safety)
@@ -60,6 +61,14 @@ Fast path requires **one of**:
 
 If none of those → **`grok`** with reason `no_named_or_area_target`. Never fire
 all lights / climates / covers.
+
+`scope` is a speculative Choice (`named_entity | named_area | whole_home |
+unspecified`) asked in the same TypeSafe call. When `scope=whole_home` at
+`FAST_MIN_CONFIDENCE` and the utterance is **not** the multi-area same-action
+case, the router treats targeting like `target_area=none` (ignores a single
+room Choice). That blocks “all lights” from firing one room if Jev also picked
+an area. Sole exposed entity of that domain for simple on/off-style actions
+still fast-paths.
 
 `unknown` area → Grok (unless two or more named areas were recovered from the
 utterance). Explicit area with no matching exposed entity of that domain →
@@ -152,7 +161,12 @@ Verified byte-for-byte against `xai-org/grok-build`
 Device-code + PKCE at `https://auth.x.ai`. Not HA Application Credentials.
 API key for `https://api.x.ai` is fallback only.
 
-TypeSafe/Jev remains an API key (`jev-latest` via `typesafe-sdk`).
+TypeSafe/Jev remains an API key (`jev-latest` via `typesafe-sdk`
+`AsyncTypeSafeClient.system_one`). State is a named JSON object (`utterance`,
+`language`, `exposed_entities`, `areas`) — not a JSON string. One call fans out
+category / domain / action / scope / target_area Choices plus `needs_llm` and
+`is_compound` Nouls (speculative; code ignores unused answers). RetryPolicy
+`max_retries=2`, HTTP timeout 10s (SDK defaults, made explicit).
 
 ## Grok handoff
 
@@ -166,3 +180,9 @@ Jev does **not** run TTS, STT, or a Grok chat stack. Override the target with
 config-entry option/data key `grok_handoff_agent_id`. If the agent is missing,
 the target is this agent, or handoff raises any exception, Assist gets
 `Grok is not available.` — never an uncaught error in the pipeline.
+
+Handoff contract assumptions (SpaceXAI umbrella, not this repo): the target
+agent receives the original Assist turn (`text`, `conversation_id`, `language`,
+device/satellite ids, `extra_system_prompt`). Jev does not pre-split compound
+utterances; Grok is expected to generate prose, split mixed ops, and call HA
+tools when the umbrella agent is configured to do so.

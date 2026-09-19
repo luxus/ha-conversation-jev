@@ -37,10 +37,11 @@ def test_build_state_coerces_computed_name_enum_aliases() -> None:
         aliases=(COMPUTED_NAME, "kitchen"),  # type: ignore[arg-type]
     )
     raw = build_state("lichter aus", [entity], "de")
-    payload = json.loads(raw)
+    payload = raw if isinstance(raw, dict) else json.loads(raw)
     dumped = payload["exposed_entities"][0]
     expected = str(COMPUTED_NAME)
 
+    assert payload["utterance"] == "lichter aus"
     assert dumped["name"] == expected
     assert isinstance(dumped["name"], str)
     assert not isinstance(dumped["name"], Enum)

@@ -82,8 +82,8 @@ async def test_grok_when_needs_llm() -> None:
 
 
 @pytest.mark.asyncio
-async def test_needs_llm_below_threshold_still_fast() -> None:
-    client = FakeJevClient(classification(needs_llm=NOUL_YES_THRESHOLD - 0.01))
+async def test_needs_llm_clear_no_still_fast() -> None:
+    client = FakeJevClient(classification(needs_llm=0.20))
     result = await route(
         "turn off the living lamp",
         [LIVING_LAMP],
@@ -91,6 +91,32 @@ async def test_needs_llm_below_threshold_still_fast() -> None:
         client=client,
     )
     assert result.kind == "fast_service"
+
+
+@pytest.mark.asyncio
+async def test_needs_llm_unsure_goes_to_grok() -> None:
+    client = FakeJevClient(classification(needs_llm=0.50))
+    result = await route(
+        "turn off the living lamp",
+        [LIVING_LAMP],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "needs_llm_unsure"
+
+
+@pytest.mark.asyncio
+async def test_compound_unsure_goes_to_grok() -> None:
+    client = FakeJevClient(classification(is_compound=0.48))
+    result = await route(
+        "turn off the lamp and maybe lock the door",
+        [LIVING_LAMP],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "is_compound_unsure"
 
 
 @pytest.mark.asyncio
@@ -127,6 +153,7 @@ async def test_grok_conversation_category() -> None:
     client = FakeJevClient(classification(category="conversation"))
     result = await route("tell me a joke", [LIVING_LAMP], language="en", client=client)
     assert result.kind == "grok"
+    assert result.reason == "conversation"
 
 
 @pytest.mark.asyncio
@@ -623,3 +650,60 @@ async def test_cover_whole_home_none_does_not_fire_all() -> None:
     )
     assert result.kind == "grok"
     assert result.reason == "no_named_or_area_target"
+
+
+@pytest.mark.asyncio
+async def test_whole_home_scope_does_not_fire_wrong_room() -> None:
+    kitchen = ExposedEntity(
+        entity_id="light.kitchen",
+        domain="light",
+        name="Kitchen",
+        area="Kitchen",
+    )
+    client = FakeJevClient(
+        classification(
+            action="turn_off",
+            target_area="Living room",
+            scope="whole_home",
+        )
+    )
+    result = await route(
+        "turn off all the lights",
+        [LIVING_LAMP, kitchen],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "no_named_or_area_target"
+    assert result.service_data is None
+
+
+@pytest.mark.asyncio
+async def test_whole_home_scope_sole_light_still_fast() -> None:
+    client = FakeJevClient(
+        classification(action="turn_off", target_area="none", scope="whole_home")
+    )
+    result = await route("Licht aus", [LIVING_LAMP], language="de", client=client)
+    assert result.kind == "fast_service"
+    assert result.service == "turn_off"
+    assert result.service_data == {"entity_id": "light.living_lamp"}
+
+
+@pytest.mark.asyncio
+async def test_whole_home_scope_does_not_block_multi_area() -> None:
+    client = FakeJevClient(
+        classification(
+            action="turn_on",
+            target_area="none",
+            scope="whole_home",
+            is_compound=0.80,
+        )
+    )
+    result = await route(
+        "all lights in bedroom and hallway",
+        [BEDROOM_LIGHT, HALLWAY_LIGHT, LIVING_LAMP],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert _entity_ids(result) == {"light.bedroom", "light.hallway"}

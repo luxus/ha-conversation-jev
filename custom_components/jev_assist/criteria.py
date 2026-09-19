@@ -2,6 +2,9 @@
 
 Light, climate, and cover map to ``fast_service`` when gates pass.
 Other domains go to Grok. Categories stay ``command | conversation | reject``.
+
+Instructions use backticked JSON paths into the structured ``state`` object
+(``utterance``, ``language``, ``exposed_entities``, ``areas``).
 """
 
 from __future__ import annotations
@@ -10,11 +13,11 @@ from typing import Final
 
 CATEGORY_INSTRUCTIONS: Final[dict[str, str]] = {
     "en": (
-        "Classify the user utterance for a Home Assistant voice agent. "
+        "Classify `utterance` for a Home Assistant voice agent. "
         "Pick the single best category."
     ),
     "de": (
-        "Klassifiziere die Nutzeräußerung für einen Home-Assistant-Sprachassistenten. "
+        "Klassifiziere `utterance` für einen Home-Assistant-Sprachassistenten. "
         "Wähle die eine passende Kategorie."
     ),
 }
@@ -53,8 +56,14 @@ CATEGORY_OPTIONS: Final[dict[str, dict[str, str]]] = {
 }
 
 DOMAIN_INSTRUCTIONS: Final[dict[str, str]] = {
-    "en": "Which Home Assistant domain is this utterance primarily targeting?",
-    "de": "Welche Home-Assistant-Domäne zielt diese Äußerung in erster Linie an?",
+    "en": (
+        "Which Home Assistant domain is `utterance` primarily targeting? "
+        "Use `exposed_entities` names, aliases, and domains as evidence."
+    ),
+    "de": (
+        "Welche Home-Assistant-Domäne zielt `utterance` in erster Linie an? "
+        "Nutze Namen, Aliase und Domänen in `exposed_entities` als Belege."
+    ),
 }
 
 DOMAIN_OPTIONS: Final[dict[str, dict[str, str]]] = {
@@ -94,12 +103,12 @@ DOMAIN_OPTIONS: Final[dict[str, dict[str, str]]] = {
 
 ACTION_INSTRUCTIONS: Final[dict[str, str]] = {
     "en": (
-        "Which action should be taken? Speculative: answer even if the "
-        "utterance is not a device command."
+        "Which action should be taken given `utterance`? Speculative: answer "
+        "even if `utterance` is not a device command."
     ),
     "de": (
-        "Welche Aktion soll ausgeführt werden? Spekulativ: auch antworten, "
-        "wenn die Äußerung kein Gerätebefehl ist."
+        "Welche Aktion soll laut `utterance` ausgeführt werden? Spekulativ: "
+        "auch antworten, wenn `utterance` kein Gerätebefehl ist."
     ),
 }
 
@@ -162,21 +171,71 @@ ACTION_OPTIONS: Final[dict[str, dict[str, str]]] = {
     },
 }
 
-TARGET_AREA_INSTRUCTIONS: Final[dict[str, str]] = {
+SCOPE_INSTRUCTIONS: Final[dict[str, str]] = {
     "en": (
-        "Which area should be targeted? Use an area name from the list when "
-        "the user named a room. If the user named two or more rooms for the "
-        "same action, pick one of those named rooms — not none or unknown. "
-        "Use none when the command is house-wide or has no area. Use unknown "
-        "when the area cannot be determined."
+        "What is the targeting scope of `utterance`? Speculative: answer even "
+        "if `utterance` is not a device command. Use `exposed_entities` and "
+        "`areas` as evidence."
     ),
     "de": (
-        "Welcher Bereich soll angesteuert werden? Nutze einen Bereichsnamen "
-        "aus der Liste, wenn der Nutzer einen Raum genannt hat. Wenn der "
-        "Nutzer zwei oder mehr Räume für dieselbe Aktion nennt, wähle einen "
-        "dieser genannten Räume — nicht none oder unknown. Nutze none, "
-        "wenn der Befehl das ganze Haus betrifft oder keinen Bereich hat. "
-        "Nutze unknown, wenn der Bereich nicht bestimmt werden kann."
+        "Welchen Zielumfang hat `utterance`? Spekulativ: auch antworten, wenn "
+        "`utterance` kein Gerätebefehl ist. Nutze `exposed_entities` und "
+        "`areas` als Belege."
+    ),
+}
+
+SCOPE_OPTIONS: Final[dict[str, dict[str, str]]] = {
+    "named_entity": {
+        "en": (
+            "The user named a specific device (name or alias from "
+            "`exposed_entities`), not only a room or a device type."
+        ),
+        "de": (
+            "Der Nutzer nannte ein bestimmtes Gerät (Name oder Alias aus "
+            "`exposed_entities`), nicht nur einen Raum oder einen Gerätetyp."
+        ),
+    },
+    "named_area": {
+        "en": (
+            "The user named one or more rooms from `areas` (or implied a "
+            "room) without naming a specific device."
+        ),
+        "de": (
+            "Der Nutzer nannte einen oder mehrere Räume aus `areas` "
+            "(oder deutete einen Raum an), ohne ein bestimmtes Gerät zu nennen."
+        ),
+    },
+    "whole_home": {
+        "en": (
+            "House-wide: every device of a type in the home, with no room "
+            "or specific device named (for example all lights / all blinds)."
+        ),
+        "de": (
+            "Ganzes Haus: jedes Gerät eines Typs im Haus, ohne genannten "
+            "Raum oder bestimmtes Gerät (zum Beispiel alle Lichter / alle Jalousien)."
+        ),
+    },
+    "unspecified": {
+        "en": "No targeting scope, or the scope cannot be determined.",
+        "de": "Kein Zielumfang, oder der Umfang kann nicht bestimmt werden.",
+    },
+}
+
+TARGET_AREA_INSTRUCTIONS: Final[dict[str, str]] = {
+    "en": (
+        "Which area from `areas` should be targeted for `utterance`? Use an "
+        "area name from `areas` when the user named a room. If the user named "
+        "two or more rooms for the same action, pick one of those named rooms "
+        "— not none or unknown. Use none when the command is house-wide or "
+        "has no area. Use unknown when the area cannot be determined."
+    ),
+    "de": (
+        "Welcher Bereich aus `areas` soll für `utterance` angesteuert werden? "
+        "Nutze einen Bereichsnamen aus `areas`, wenn der Nutzer einen Raum "
+        "genannt hat. Wenn der Nutzer zwei oder mehr Räume für dieselbe Aktion "
+        "nennt, wähle einen dieser genannten Räume — nicht none oder unknown. "
+        "Nutze none, wenn der Befehl das ganze Haus betrifft oder keinen "
+        "Bereich hat. Nutze unknown, wenn der Bereich nicht bestimmt werden kann."
     ),
 }
 
@@ -192,32 +251,82 @@ TARGET_AREA_UNKNOWN: Final[dict[str, str]] = {
 
 NOUL_NEEDS_LLM: Final[dict[str, str]] = {
     "en": (
-        "The utterance needs a generative LLM (Grok) rather than a single "
+        "Does `utterance` need a generative LLM (Grok) rather than a single "
         "deterministic Home Assistant service call: questions, explanations, "
         "planning, relative or underspecified commands, or anything that "
-        "requires generated text."
+        "requires generated text?"
     ),
     "de": (
-        "Die Äußerung braucht ein generatives LLM (Grok) statt eines einzelnen "
+        "Braucht `utterance` ein generatives LLM (Grok) statt eines einzelnen "
         "deterministischen Home-Assistant-Serviceaufrufs: Fragen, Erklärungen, "
         "Planung, relative oder unterspezifizierte Befehle, oder alles, das "
-        "generierten Text erfordert."
+        "generierten Text erfordert?"
     ),
+}
+
+NOUL_NEEDS_LLM_CRITERIA: Final[dict[str, dict[str, str]]] = {
+    "true": {
+        "en": (
+            "Yes: `utterance` cannot be executed as one mapped HA service call "
+            "and needs generated language or planning."
+        ),
+        "de": (
+            "Ja: `utterance` kann nicht als ein gemappter HA-Serviceaufruf "
+            "ausgeführt werden und braucht generierte Sprache oder Planung."
+        ),
+    },
+    "false": {
+        "en": (
+            "No: `utterance` is a single concrete device command (on/off, "
+            "dim to a percent, set a temperature, open/close) or is not a "
+            "request that needs generated text."
+        ),
+        "de": (
+            "Nein: `utterance` ist ein einzelner konkreter Gerätebefehl "
+            "(ein/aus, auf Prozent dimmen, Temperatur setzen, öffnen/schließen) "
+            "oder keine Anfrage, die generierten Text braucht."
+        ),
+    },
 }
 
 NOUL_IS_COMPOUND: Final[dict[str, str]] = {
     "en": (
-        "The utterance asks for more than one distinct action or targets "
-        "multiple independent device operations that should be split first. "
+        "Does `utterance` ask for more than one distinct action or target "
+        "multiple independent device operations that should be split first? "
         "The same action on the same domain in two or more named rooms "
         "(for example all lights in bedroom and hallway) is a single "
         "operation, not compound."
     ),
     "de": (
-        "Die Äußerung verlangt mehr als eine eigenständige Aktion oder zielt "
-        "auf mehrere unabhängige Geräteaktionen, die zuerst aufgeteilt werden "
-        "sollten. Dieselbe Aktion in derselben Domäne in zwei oder mehr "
+        "Verlangt `utterance` mehr als eine eigenständige Aktion oder zielt "
+        "sie auf mehrere unabhängige Geräteaktionen, die zuerst aufgeteilt "
+        "werden sollten? Dieselbe Aktion in derselben Domäne in zwei oder mehr "
         "genannten Räumen (zum Beispiel alle Lichter in Schlafzimmer und Flur) "
         "ist eine einzelne Operation, kein Compound."
     ),
+}
+
+NOUL_IS_COMPOUND_CRITERIA: Final[dict[str, dict[str, str]]] = {
+    "true": {
+        "en": (
+            "Yes: two or more independent operations (different actions, "
+            "different domains, or mixed on/off) that an LLM should split."
+        ),
+        "de": (
+            "Ja: zwei oder mehr unabhängige Operationen (verschiedene Aktionen, "
+            "verschiedene Domänen oder gemischtes ein/aus), die ein LLM "
+            "aufteilen sollte."
+        ),
+    },
+    "false": {
+        "en": (
+            "No: a single operation, including the same action on one domain "
+            "in one or more named rooms, or not a multi-step request."
+        ),
+        "de": (
+            "Nein: eine einzelne Operation, einschließlich derselben Aktion "
+            "in einer Domäne in einem oder mehreren genannten Räumen, oder "
+            "keine mehrstufige Anfrage."
+        ),
+    },
 }
