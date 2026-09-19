@@ -49,6 +49,7 @@ def test_action_keys_align_with_fast_maps() -> None:
         "close",
         "stop",
         "set_position",
+        "set_tilt",
         "other",
     }
     assert set(criteria.ACTION_OPTIONS) == frozen
@@ -68,6 +69,8 @@ def test_action_keys_align_with_fast_maps() -> None:
     assert "close" in COVER_ACTION_MAP
     assert "stop" in COVER_ACTION_MAP
     assert "set_position" in COVER_ACTION_MAP
+    assert "set_tilt" in COVER_ACTION_MAP
+    assert COVER_ACTION_MAP["set_tilt"] == ("cover", "set_cover_tilt_position")
     assert set(LIGHT_ACTION_MAP) <= frozen
     assert set(CLIMATE_ACTION_MAP) <= frozen
     assert set(COVER_ACTION_MAP) <= frozen
@@ -91,6 +94,15 @@ def test_scope_keys_are_frozen() -> None:
         "whole_home",
         "unspecified",
     }
+
+
+def test_set_tilt_criteria_are_percent_based() -> None:
+    en = criteria.ACTION_OPTIONS["set_tilt"]["en"].lower()
+    de = criteria.ACTION_OPTIONS["set_tilt"]["de"].lower()
+    assert "percent" in en
+    assert "tilt" in en
+    assert "prozent" in de
+    assert "lamellen" in de or "neigung" in de
 
 
 def test_blessed_gate_constants() -> None:

@@ -155,6 +155,7 @@ _UNPARSED_REASONS: dict[str, str] = {
     "set_temperature": "temperature_unparsed",
     "set_hvac_mode": "hvac_mode_unparsed",
     "set_position": "position_unparsed",
+    "set_tilt": "tilt_unparsed",
 }
 _COVER_PHRASES = ("garage door", "garage doors")
 

@@ -596,6 +596,97 @@ async def test_cover_set_position_unparsed_grok() -> None:
 
 
 @pytest.mark.asyncio
+async def test_cover_set_tilt_fast() -> None:
+    client = FakeJevClient(
+        classification(domain="cover", action="set_tilt", target_area="bedroom")
+    )
+    result = await route(
+        "tilt blinds to 50%",
+        [BEDROOM_COVER],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.reason == "cover_v0"
+    assert result.domain == "cover"
+    assert result.service == "set_cover_tilt_position"
+    assert result.service_data == {
+        "entity_id": "cover.bedroom_blind",
+        "tilt_position": 50,
+    }
+
+
+@pytest.mark.asyncio
+async def test_cover_set_tilt_de_fast() -> None:
+    client = FakeJevClient(
+        classification(domain="cover", action="set_tilt", target_area="bedroom")
+    )
+    result = await route(
+        "Lamellen auf 30%",
+        [BEDROOM_COVER],
+        language="de",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.service == "set_cover_tilt_position"
+    assert result.service_data == {
+        "entity_id": "cover.bedroom_blind",
+        "tilt_position": 30,
+    }
+
+
+@pytest.mark.asyncio
+async def test_cover_set_tilt_unparsed_grok() -> None:
+    client = FakeJevClient(
+        classification(domain="cover", action="set_tilt", target_area="bedroom")
+    )
+    result = await route(
+        "tilt the bedroom blinds halfway",
+        [BEDROOM_COVER],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "tilt_unparsed"
+    assert result.service_data is None
+
+
+@pytest.mark.asyncio
+async def test_cover_set_tilt_name_token_with_none() -> None:
+    other = ExposedEntity(
+        entity_id="cover.kitchen_blind",
+        domain="cover",
+        name="Kitchen blind",
+        area="Kitchen",
+    )
+    client = FakeJevClient(
+        classification(domain="cover", action="set_tilt", target_area="none")
+    )
+    result = await route(
+        "tilt the bedroom blinds to 50%",
+        [BEDROOM_COVER, other],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.service == "set_cover_tilt_position"
+    assert result.service_data == {
+        "entity_id": "cover.bedroom_blind",
+        "tilt_position": 50,
+    }
+
+
+@pytest.mark.asyncio
+async def test_cover_sole_set_tilt_none_still_grok() -> None:
+    client = FakeJevClient(
+        classification(domain="cover", action="set_tilt", target_area="none")
+    )
+    result = await route("Neigung 20 Prozent", [BEDROOM_COVER], language="de", client=client)
+    assert result.kind == "grok"
+    assert result.reason == "no_named_or_area_target"
+
+
+@pytest.mark.asyncio
 async def test_cover_turn_off_alias_closes() -> None:
     client = FakeJevClient(
         classification(domain="cover", action="turn_off", target_area="bedroom")

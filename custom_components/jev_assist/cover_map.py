@@ -1,4 +1,4 @@
-"""Cover service map and position parsing."""
+"""Cover service map and position / tilt percent parsing."""
 
 from __future__ import annotations
 
@@ -12,11 +12,13 @@ COVER_ACTION_MAP: Final[dict[str, tuple[str, str]]] = {
     "close": ("cover", "close_cover"),
     "stop": ("cover", "stop_cover"),
     "set_position": ("cover", "set_cover_position"),
+    "set_tilt": ("cover", "set_cover_tilt_position"),
     "turn_on": ("cover", "open_cover"),
     "turn_off": ("cover", "close_cover"),
 }
 
-POSITION_RE: Final[re.Pattern[str]] = re.compile(
+# Shared DE/EN percent for lift position and slat tilt. Not on/off.
+PERCENT_RE: Final[re.Pattern[str]] = re.compile(
     r"""
     (?P<value>\d{1,3})
     \s*
@@ -27,17 +29,28 @@ POSITION_RE: Final[re.Pattern[str]] = re.compile(
     """,
     re.IGNORECASE | re.VERBOSE,
 )
+POSITION_RE: Final[re.Pattern[str]] = PERCENT_RE
 
 
-def parse_position_pct(utterance: str) -> int | None:
-    """Return a 0–100 cover position if the utterance contains a percent."""
-    match = POSITION_RE.search(utterance)
+def parse_percent_pct(utterance: str) -> int | None:
+    """Return a 0–100 percent if the utterance contains one."""
+    match = PERCENT_RE.search(utterance)
     if match is None:
         return None
     value = int(match.group("value"))
     if value > 100:
         return None
     return max(0, min(100, value))
+
+
+def parse_position_pct(utterance: str) -> int | None:
+    """Return a 0–100 cover position if the utterance contains a percent."""
+    return parse_percent_pct(utterance)
+
+
+def parse_tilt_pct(utterance: str) -> int | None:
+    """Return a 0–100 cover tilt if the utterance contains a percent."""
+    return parse_percent_pct(utterance)
 
 
 def cover_service_call(
@@ -58,4 +71,9 @@ def cover_service_call(
         if position is None:
             return None
         data["position"] = position
+    elif action == "set_tilt":
+        tilt = parse_tilt_pct(utterance)
+        if tilt is None:
+            return None
+        data["tilt_position"] = tilt
     return domain, service, data
