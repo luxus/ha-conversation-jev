@@ -31,24 +31,57 @@ def test_option_maps_are_bilingual() -> None:
             _assert_lang_map(f"{name}.{key}", langs)
 
 
-def test_action_keys_align_with_light_map() -> None:
-    """Freeze v0 action keys vs the light service map."""
+def test_action_keys_align_with_fast_maps() -> None:
+    """Action keys include light/climate/cover maps; ``other`` stays unmapped."""
+    from jev_assist.climate_map import CLIMATE_ACTION_MAP
+    from jev_assist.cover_map import COVER_ACTION_MAP
     from jev_assist.light_map import LIGHT_ACTION_MAP
 
-    frozen = {"turn_on", "turn_off", "toggle", "set_brightness", "other"}
+    frozen = {
+        "turn_on",
+        "turn_off",
+        "toggle",
+        "set_brightness",
+        "set_temperature",
+        "set_hvac_mode",
+        "open",
+        "close",
+        "stop",
+        "set_position",
+        "other",
+    }
     assert set(criteria.ACTION_OPTIONS) == frozen
-    assert set(LIGHT_ACTION_MAP) == frozen - {"other"}
-    assert set(LIGHT_ACTION_MAP) <= set(criteria.ACTION_OPTIONS)
-    assert set(LIGHT_ACTION_MAP) & set(criteria.ACTION_OPTIONS) == {
+    assert set(LIGHT_ACTION_MAP) == {
         "turn_on",
         "turn_off",
         "toggle",
         "set_brightness",
     }
+    assert set(CLIMATE_ACTION_MAP) == {
+        "set_temperature",
+        "turn_on",
+        "turn_off",
+        "set_hvac_mode",
+    }
+    assert "open" in COVER_ACTION_MAP
+    assert "close" in COVER_ACTION_MAP
+    assert "stop" in COVER_ACTION_MAP
+    assert "set_position" in COVER_ACTION_MAP
+    assert set(LIGHT_ACTION_MAP) <= frozen
+    assert set(CLIMATE_ACTION_MAP) <= frozen
+    assert set(COVER_ACTION_MAP) <= frozen
+    assert "other" not in LIGHT_ACTION_MAP
+    assert "other" not in CLIMATE_ACTION_MAP
+    assert "other" not in COVER_ACTION_MAP
 
 
 def test_blessed_gate_constants() -> None:
-    from jev_assist.const import FAST_MIN_CONFIDENCE, NOUL_YES_THRESHOLD
+    from jev_assist.const import (
+        FAST_MIN_CONFIDENCE,
+        NOUL_YES_THRESHOLD,
+        REJECT_MIN_CONFIDENCE,
+    )
 
     assert FAST_MIN_CONFIDENCE == 0.80
     assert NOUL_YES_THRESHOLD == 0.55
+    assert REJECT_MIN_CONFIDENCE == 0.80

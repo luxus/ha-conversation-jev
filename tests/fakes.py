@@ -19,6 +19,55 @@ LIVING_LAMP = ExposedEntity(
     area="Living room",
 )
 
+SCHLAFZIMMER_LIGHT = ExposedEntity(
+    entity_id="light.schlafzimmer",
+    domain="light",
+    name="Schlafzimmerlampe",
+    area="Schlafzimmer",
+)
+
+FLUR_LIGHT = ExposedEntity(
+    entity_id="light.flur",
+    domain="light",
+    name="Flurlicht",
+    area="Flur",
+)
+
+WOHNZIMMER_LIGHT = ExposedEntity(
+    entity_id="light.wohnzimmer",
+    domain="light",
+    name="Wohnzimmerlampe",
+    area="Wohnzimmer",
+)
+
+BEDROOM_LIGHT = ExposedEntity(
+    entity_id="light.bedroom",
+    domain="light",
+    name="Bedroom lamp",
+    area="bedroom",
+)
+
+HALLWAY_LIGHT = ExposedEntity(
+    entity_id="light.hallway",
+    domain="light",
+    name="Hallway lamp",
+    area="hallway",
+)
+
+LIVING_CLIMATE = ExposedEntity(
+    entity_id="climate.living",
+    domain="climate",
+    name="Living thermostat",
+    area="Living room",
+)
+
+BEDROOM_COVER = ExposedEntity(
+    entity_id="cover.bedroom_blind",
+    domain="cover",
+    name="Bedroom blind",
+    area="bedroom",
+)
+
 
 def choice(label: str, confidence: float = 0.95) -> ChoiceView:
     return ChoiceView(choice=label, confidence=confidence, probabilities={label: confidence})

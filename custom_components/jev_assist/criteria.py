@@ -1,8 +1,7 @@
 """DE/EN TypeSafe question constants for Jev Assist.
 
-Climate/cover (and other non-light) domains exist so Jev can classify them.
-v0 only maps ``light`` to ``fast_service``; other domains go to Grok.
-Do not expand categories until climate/cover get a fast-path.
+Light, climate, and cover map to ``fast_service`` when gates pass.
+Other domains go to Grok. Categories stay ``command | conversation | reject``.
 """
 
 from __future__ import annotations
@@ -127,6 +126,36 @@ ACTION_OPTIONS: Final[dict[str, dict[str, str]]] = {
             "(einschließlich relativ dimmen/heller)."
         ),
     },
+    "set_temperature": {
+        "en": "Set a thermostat or climate target temperature (setpoint in degrees).",
+        "de": "Ein Thermostat- oder Klima-Sollwert in Grad setzen.",
+    },
+    "set_hvac_mode": {
+        "en": (
+            "Set HVAC mode (heat, cool, auto, off, dry, fan_only, heat_cool) "
+            "when the mode is named clearly."
+        ),
+        "de": (
+            "Den HLK-Modus setzen (heizen, kühlen, auto, aus, entfeuchten, "
+            "nur Lüfter, heizen und kühlen), wenn der Modus klar genannt ist."
+        ),
+    },
+    "open": {
+        "en": "Open a cover, blind, shade, shutter, or garage door.",
+        "de": "Ein Cover, Jalousie, Rollladen, Vorhang oder Garagentor öffnen.",
+    },
+    "close": {
+        "en": "Close a cover, blind, shade, shutter, or garage door.",
+        "de": "Ein Cover, Jalousie, Rollladen, Vorhang oder Garagentor schließen.",
+    },
+    "stop": {
+        "en": "Stop a moving cover, blind, shade, or garage door.",
+        "de": "Ein fahrendes Cover, Jalousie, Rollladen oder Garagentor stoppen.",
+    },
+    "set_position": {
+        "en": "Set a cover position to an explicit percent (0–100).",
+        "de": "Die Position eines Covers auf einen klaren Prozentwert (0–100) setzen.",
+    },
     "other": {
         "en": "Any other action, or no device action applies.",
         "de": "Jede andere Aktion, oder es gilt keine Geräteaktion.",
@@ -136,12 +165,16 @@ ACTION_OPTIONS: Final[dict[str, dict[str, str]]] = {
 TARGET_AREA_INSTRUCTIONS: Final[dict[str, str]] = {
     "en": (
         "Which area should be targeted? Use an area name from the list when "
-        "the user named a room. Use none when the command is house-wide or "
-        "has no area. Use unknown when the area cannot be determined."
+        "the user named a room. If the user named two or more rooms for the "
+        "same action, pick one of those named rooms — not none or unknown. "
+        "Use none when the command is house-wide or has no area. Use unknown "
+        "when the area cannot be determined."
     ),
     "de": (
         "Welcher Bereich soll angesteuert werden? Nutze einen Bereichsnamen "
-        "aus der Liste, wenn der Nutzer einen Raum genannt hat. Nutze none, "
+        "aus der Liste, wenn der Nutzer einen Raum genannt hat. Wenn der "
+        "Nutzer zwei oder mehr Räume für dieselbe Aktion nennt, wähle einen "
+        "dieser genannten Räume — nicht none oder unknown. Nutze none, "
         "wenn der Befehl das ganze Haus betrifft oder keinen Bereich hat. "
         "Nutze unknown, wenn der Bereich nicht bestimmt werden kann."
     ),
@@ -175,10 +208,16 @@ NOUL_NEEDS_LLM: Final[dict[str, str]] = {
 NOUL_IS_COMPOUND: Final[dict[str, str]] = {
     "en": (
         "The utterance asks for more than one distinct action or targets "
-        "multiple independent device operations that should be split first."
+        "multiple independent device operations that should be split first. "
+        "The same action on the same domain in two or more named rooms "
+        "(for example all lights in bedroom and hallway) is a single "
+        "operation, not compound."
     ),
     "de": (
         "Die Äußerung verlangt mehr als eine eigenständige Aktion oder zielt "
-        "auf mehrere unabhängige Geräteaktionen, die zuerst aufgeteilt werden sollten."
+        "auf mehrere unabhängige Geräteaktionen, die zuerst aufgeteilt werden "
+        "sollten. Dieselbe Aktion in derselben Domäne in zwei oder mehr "
+        "genannten Räumen (zum Beispiel alle Lichter in Schlafzimmer und Flur) "
+        "ist eine einzelne Operation, kein Compound."
     ),
 }

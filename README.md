@@ -1,6 +1,6 @@
 # Jev Assist
 
-Home Assistant custom conversation agent: **Jev** (TypeSafe System One, `jev-latest`) classifies an utterance, then either calls a **light** service (v0 fast path) or hands off to the **SpaceXAI Grok** conversation agent.
+Home Assistant custom conversation agent: **Jev** (TypeSafe System One, `jev-latest`) classifies an utterance, then either calls a **light / climate / cover** service (fast path) or hands off to the **SpaceXAI Grok** conversation agent.
 
 ## Install (HACS)
 
@@ -27,12 +27,13 @@ This integration does **not** use Home Assistant Application Credentials.
 
 After setup, pick **Jev Assist** as the conversation agent in an Assist pipeline.
 
-## What v0 does
+## What it does
 
 - Jev questions (DE/EN) live in `criteria.py` and are sent via the official `typesafe-sdk` (`AsyncTypeSafeClient.system_one`, model `jev-latest`).
 - Router kinds: `fast_service` | `grok` | `reject` (gates in `CONTRACT.md` / `const.py`: `FAST_MIN_CONFIDENCE=0.80`, `NOUL_YES_THRESHOLD=0.55`).
-- Fast path maps light `turn_on` / `turn_off` / `toggle` / `set_brightness` (brightness regex in `light_map.py`).
-- Whole-home safety: `target_area=none` never fires all exposed lights. Needs a name-token match, an explicit area, or exactly one Assist-exposed light for `turn_on` / `turn_off` / `toggle`.
+- Fast path domains: **light** (`turn_on` / `turn_off` / `toggle` / `set_brightness`), **climate** (`set_temperature` / `turn_on` / `turn_off` / `set_hvac_mode`), **cover** (`open` / `close` / `stop` / `set_position`). Maps live in `light_map.py`, `climate_map.py`, `cover_map.py`.
+- Multi-area same action: „alle Lichter in Schlafzimmer und Flur“ / “all lights in bedroom and hallway” stays `fast_service` (union of Assist-exposed lights in those rooms only), even if Jev marks `is_compound`.
+- Whole-home safety: `target_area=none` never fires all exposed entities of a domain. Needs a name-token match, an explicit area, two or more named areas, or exactly one Assist-exposed entity of that domain for simple on/off-style actions.
 - Grok path: `conversation.async_converse` to `conversation.spacexai_grok` (`GROK_HANDOFF_AGENT_ID`; override with config-entry `grok_handoff_agent_id`). No TTS/STT/chat stack inside Jev.
 
 ## Tests
