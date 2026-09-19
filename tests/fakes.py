@@ -87,6 +87,8 @@ def classification(
     action_c: float = 0.95,
     target_area: str = "Living room",
     target_c: float = 0.95,
+    scope: str = "unspecified",
+    scope_c: float = 0.95,
     needs_llm: float = 0.05,
     is_compound: float = 0.05,
 ) -> JevClassification:
@@ -94,6 +96,7 @@ def classification(
         category=choice(category, category_c),
         domain=choice(domain, domain_c),
         action=choice(action, action_c),
+        scope=choice(scope, scope_c),
         target_area=choice(target_area, target_c),
         needs_llm=noul(needs_llm),
         is_compound=noul(is_compound),

@@ -9,14 +9,17 @@ from typing import Any, Callable, Literal, Protocol, Sequence
 from .climate_map import CLIMATE_ACTION_MAP, climate_service_call
 from .const import (
     CATEGORY_COMMAND,
+    CATEGORY_CONVERSATION,
     CATEGORY_REJECT,
     DEFAULT_LANGUAGE,
     DOMAIN_CLIMATE,
     DOMAIN_COVER,
     DOMAIN_LIGHT,
     FAST_MIN_CONFIDENCE,
+    NOUL_UNSURE_LOW,
     NOUL_YES_THRESHOLD,
     REJECT_MIN_CONFIDENCE,
+    SCOPE_WHOLE_HOME,
     TARGET_NONE,
     TARGET_UNKNOWN,
 )
@@ -204,6 +207,7 @@ class JevClassification:
     category: ChoiceView
     domain: ChoiceView
     action: ChoiceView
+    scope: ChoiceView
     target_area: ChoiceView
     needs_llm: NoulView
     is_compound: NoulView
@@ -253,6 +257,26 @@ def _choice_ok(view: ChoiceView, expected: str | None = None) -> bool:
 
 def _noul_yes(view: NoulView) -> bool:
     return view.noul >= NOUL_YES_THRESHOLD
+
+
+def _noul_unsure(view: NoulView) -> bool:
+    """Noul has no confidence field; near 0.5 means yes ≈ no."""
+    return NOUL_UNSURE_LOW <= view.noul < NOUL_YES_THRESHOLD
+
+
+def _noul_handoff(view: NoulView) -> bool:
+    return _noul_yes(view) or _noul_unsure(view)
+
+
+def _noul_handoff_reason(prefix: str, view: NoulView) -> str:
+    return prefix if _noul_yes(view) else f"{prefix}_unsure"
+
+
+def _confident_whole_home(classification: JevClassification) -> bool:
+    return (
+        classification.scope.choice == SCOPE_WHOLE_HOME
+        and classification.scope.confidence >= FAST_MIN_CONFIDENCE
+    )
 
 
 def _words(text: str) -> set[str]:
@@ -408,6 +432,12 @@ def apply_gates(
             reason="category_reject",
             classification=classification,
         )
+    if cat.choice == CATEGORY_CONVERSATION and cat.confidence >= FAST_MIN_CONFIDENCE:
+        return RouteResult(
+            kind="grok",
+            reason="conversation",
+            classification=classification,
+        )
 
     named_areas = named_areas_in_utterance(utterance, exposed)
     domain_choice = classification.domain.choice
@@ -423,11 +453,12 @@ def apply_gates(
         _mentions_other_fast_domain(utterance, domain_choice)
         or _has_conflicting_actions(utterance)
     )
+    whole_home = _confident_whole_home(classification) and not multi_area
 
-    if _noul_yes(classification.is_compound) and not multi_area:
+    if _noul_handoff(classification.is_compound) and not multi_area:
         return RouteResult(
             kind="grok",
-            reason="is_compound",
+            reason=_noul_handoff_reason("is_compound", classification.is_compound),
             classification=classification,
         )
     if mixed_or_conflict:
@@ -436,10 +467,10 @@ def apply_gates(
             reason="mixed_ops",
             classification=classification,
         )
-    if _noul_yes(classification.needs_llm):
+    if _noul_handoff(classification.needs_llm):
         return RouteResult(
             kind="grok",
-            reason="needs_llm",
+            reason=_noul_handoff_reason("needs_llm", classification.needs_llm),
             classification=classification,
         )
 
@@ -464,18 +495,25 @@ def apply_gates(
             reason="action_unmapped",
             classification=classification,
         )
-    if classification.target_area.confidence < FAST_MIN_CONFIDENCE and not multi_area:
+    if (
+        classification.target_area.confidence < FAST_MIN_CONFIDENCE
+        and not multi_area
+        and not whole_home
+    ):
         return RouteResult(
             kind="grok",
             reason="target_area_low_confidence",
             classification=classification,
         )
 
+    target_area = (
+        TARGET_NONE if whole_home else classification.target_area.choice
+    )
     targets, target_reason = _resolve_targets(
         utterance,
         exposed,
         domain_choice,
-        classification.target_area.choice,
+        target_area,
         named_areas,
         action=classification.action.choice,
     )

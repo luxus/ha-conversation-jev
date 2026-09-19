@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, Sequence
 
-from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, SystemOneResponse
+from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, RetryPolicy, SystemOneResponse
 
 from . import criteria
 from .const import (
@@ -13,6 +12,8 @@ from .const import (
     TARGET_NONE,
     TARGET_UNKNOWN,
     TYPESAFE_MODEL,
+    TYPESAFE_RETRY_MAX,
+    TYPESAFE_TIMEOUT,
 )
 from .jev_router import (
     ChoiceView,
@@ -54,11 +55,15 @@ def build_state(
     utterance: str,
     exposed: Sequence[ExposedEntity],
     language: str,
-) -> str:
-    """JSON-string state for system_one (preferred over a raw dict)."""
+) -> dict[str, Any]:
+    """Named JSON object for system_one (utterance, language, entities, areas).
+
+    Pass the dict through to the SDK — do not stringify first. Alias/name/area
+    values are coerced to ``str`` so HA ``ComputedNameType`` never reaches JSON.
+    """
     capped = list(exposed)[:EXPOSED_ENTITY_CAP]
-    payload: dict[str, Any] = {
-        "text": _plain_text(utterance),
+    return {
+        "utterance": _plain_text(utterance),
         "language": _plain_text(language),
         "exposed_entities": [
             {
@@ -72,11 +77,10 @@ def build_state(
         ],
         "areas": unique_areas(capped),
     }
-    return json.dumps(payload, ensure_ascii=False, default=str)
 
 
 def build_questions(language: str, areas: Sequence[str]) -> dict[str, Choice | Noul]:
-    """Fan-out Choice/Noul questions from criteria.py."""
+    """Speculative fan-out: all Choice/Noul questions in one system_one call."""
     # Area names may be HA ComputedNameType Enums; Choice criteria must stay JSON-safe.
     area_criteria: dict[str, str] = {
         _plain_text(area): _plain_text(area) for area in areas
@@ -96,12 +100,22 @@ def build_questions(language: str, areas: Sequence[str]) -> dict[str, Choice | N
             instructions=criteria.ACTION_INSTRUCTIONS[language],
             criteria=localized_options(criteria.ACTION_OPTIONS, language),
         ),
+        "scope": Choice(
+            instructions=criteria.SCOPE_INSTRUCTIONS[language],
+            criteria=localized_options(criteria.SCOPE_OPTIONS, language),
+        ),
         "target_area": Choice(
             instructions=criteria.TARGET_AREA_INSTRUCTIONS[language],
             criteria=area_criteria,
         ),
-        "needs_llm": Noul(instructions=criteria.NOUL_NEEDS_LLM[language]),
-        "is_compound": Noul(instructions=criteria.NOUL_IS_COMPOUND[language]),
+        "needs_llm": Noul(
+            instructions=criteria.NOUL_NEEDS_LLM[language],
+            criteria=localized_options(criteria.NOUL_NEEDS_LLM_CRITERIA, language),
+        ),
+        "is_compound": Noul(
+            instructions=criteria.NOUL_IS_COMPOUND[language],
+            criteria=localized_options(criteria.NOUL_IS_COMPOUND_CRITERIA, language),
+        ),
     }
 
 
@@ -143,6 +157,7 @@ def classification_from_sdk(result: SystemOneResponse) -> JevClassification:
         category=_choice_view(result, "category"),
         domain=_choice_view(result, "domain"),
         action=_choice_view(result, "action"),
+        scope=_choice_view(result, "scope"),
         target_area=_choice_view(result, "target_area"),
         needs_llm=_noul_view(result, "needs_llm"),
         is_compound=_noul_view(result, "is_compound"),
@@ -170,6 +185,8 @@ class TypeSafeJevClient:
         async with AsyncTypeSafeClient(
             api_key=self._api_key,
             model=self._model,
+            retry=RetryPolicy(max_retries=TYPESAFE_RETRY_MAX),
+            timeout=TYPESAFE_TIMEOUT,
         ) as client:
-            result = await client.system_one(state, questions)
+            result = await client.system_one(state=state, questions=questions)
         return classification_from_sdk(result)

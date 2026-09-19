@@ -14,6 +14,7 @@ def test_instruction_maps_are_bilingual() -> None:
         "CATEGORY_INSTRUCTIONS",
         "DOMAIN_INSTRUCTIONS",
         "ACTION_INSTRUCTIONS",
+        "SCOPE_INSTRUCTIONS",
         "TARGET_AREA_INSTRUCTIONS",
         "TARGET_AREA_NONE",
         "TARGET_AREA_UNKNOWN",
@@ -24,7 +25,7 @@ def test_instruction_maps_are_bilingual() -> None:
 
 
 def test_option_maps_are_bilingual() -> None:
-    for name in ("CATEGORY_OPTIONS", "DOMAIN_OPTIONS", "ACTION_OPTIONS"):
+    for name in ("CATEGORY_OPTIONS", "DOMAIN_OPTIONS", "ACTION_OPTIONS", "SCOPE_OPTIONS"):
         options = getattr(criteria, name)
         assert options
         for key, langs in options.items():
@@ -75,13 +76,38 @@ def test_action_keys_align_with_fast_maps() -> None:
     assert "other" not in COVER_ACTION_MAP
 
 
+def test_noul_criteria_are_bilingual() -> None:
+    for name in ("NOUL_NEEDS_LLM_CRITERIA", "NOUL_IS_COMPOUND_CRITERIA"):
+        options = getattr(criteria, name)
+        assert set(options) == {"true", "false"}
+        for key, langs in options.items():
+            _assert_lang_map(f"{name}.{key}", langs)
+
+
+def test_scope_keys_are_frozen() -> None:
+    assert set(criteria.SCOPE_OPTIONS) == {
+        "named_entity",
+        "named_area",
+        "whole_home",
+        "unspecified",
+    }
+
+
 def test_blessed_gate_constants() -> None:
     from jev_assist.const import (
         FAST_MIN_CONFIDENCE,
+        NOUL_UNSURE_LOW,
         NOUL_YES_THRESHOLD,
         REJECT_MIN_CONFIDENCE,
+        TYPESAFE_MODEL,
+        TYPESAFE_RETRY_MAX,
+        TYPESAFE_TIMEOUT,
     )
 
     assert FAST_MIN_CONFIDENCE == 0.80
     assert NOUL_YES_THRESHOLD == 0.55
+    assert NOUL_UNSURE_LOW == 0.40
     assert REJECT_MIN_CONFIDENCE == 0.80
+    assert TYPESAFE_MODEL == "jev-latest"
+    assert TYPESAFE_RETRY_MAX == 2
+    assert TYPESAFE_TIMEOUT == 10.0

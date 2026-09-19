@@ -54,7 +54,8 @@ def test_sort_lights_first_before_cap() -> None:
     assert ordered[0].entity_id == "light.kitchen"
     capped = ordered[:EXPOSED_ENTITY_CAP]
     assert any(item.domain == "light" for item in capped)
-    payload = json.loads(build_state("turn off kitchen", capped, "en"))
+    payload = build_state("turn off kitchen", capped, "en")
+    json.dumps(payload)
     ids = [item["entity_id"] for item in payload["exposed_entities"]]
     assert "light.kitchen" in ids
 
@@ -84,7 +85,7 @@ def test_build_state_serializes_non_str_name() -> None:
         aliases=(alias,),  # type: ignore[arg-type]
     )
     raw = build_state("lichter aus", [entity], "de")
-    payload = json.loads(raw)
+    payload = raw if isinstance(raw, dict) else json.loads(raw)
     dumped = payload["exposed_entities"][0]
     assert dumped["name"] == "Kitchen lamp"
     assert isinstance(dumped["name"], str)

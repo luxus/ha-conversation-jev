@@ -29,11 +29,11 @@ After setup, pick **Jev Assist** as the conversation agent in an Assist pipeline
 
 ## What it does
 
-- Jev questions (DE/EN) live in `criteria.py` and are sent via the official `typesafe-sdk` (`AsyncTypeSafeClient.system_one`, model `jev-latest`).
-- Router kinds: `fast_service` | `grok` | `reject` (gates in `CONTRACT.md` / `const.py`: `FAST_MIN_CONFIDENCE=0.80`, `NOUL_YES_THRESHOLD=0.55`).
+- Jev questions (DE/EN) live in `criteria.py` and are sent in **one** `typesafe-sdk` `AsyncTypeSafeClient.system_one` call (`jev-latest`, explicit `RetryPolicy(max_retries=2)` / 10s timeout). State is a named JSON object: `utterance`, `language`, `exposed_entities`, `areas`.
+- Router kinds: `fast_service` | `grok` | `reject` (gates in `CONTRACT.md` / `const.py`: `FAST_MIN_CONFIDENCE=0.80`, `NOUL_YES_THRESHOLD=0.55`, `NOUL_UNSURE_LOW=0.40`).
 - Fast path domains: **light** (`turn_on` / `turn_off` / `toggle` / `set_brightness`), **climate** (`set_temperature` / `turn_on` / `turn_off` / `set_hvac_mode`), **cover** (`open` / `close` / `stop` / `set_position`). Maps live in `light_map.py`, `climate_map.py`, `cover_map.py`.
 - Multi-area same action: „alle Lichter in Schlafzimmer und Flur“ / “all lights in bedroom and hallway” stays `fast_service` (union of Assist-exposed lights in those rooms only), even if Jev marks `is_compound`.
-- Whole-home safety: `target_area=none` never fires all exposed entities of a domain. Needs a name-token match, an explicit area, two or more named areas, or exactly one Assist-exposed entity of that domain for simple on/off-style actions.
+- Whole-home safety: `target_area=none` never fires all exposed entities of a domain. Confident `scope=whole_home` is treated the same (does not use a single-room Choice). Needs a name-token match, an explicit area, two or more named areas, or exactly one Assist-exposed entity of that domain for simple on/off-style actions.
 - Grok path: `conversation.async_converse` to `conversation.spacexai_grok` (`GROK_HANDOFF_AGENT_ID`; override with config-entry `grok_handoff_agent_id`). No TTS/STT/chat stack inside Jev.
 
 ## Tests

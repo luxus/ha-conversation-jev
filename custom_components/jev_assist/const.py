@@ -52,10 +52,16 @@ GROK_OAUTH_REFERRER: Final = REFERRER
 GROK_API_BASE: Final = "https://api.x.ai"
 GROK_CLI_PROXY_BASE: Final = "https://cli-chat-proxy.grok.com"
 
-# Router gates (CONTRACT.md v1, blessed)
+# Router gates (CONTRACT.md v1, blessed). Thresholds are code policy.
 FAST_MIN_CONFIDENCE: Final = 0.80
 NOUL_YES_THRESHOLD: Final = 0.55
+# Noul has no separate confidence; values near 0.5 mean yes ≈ no (unsure).
+NOUL_UNSURE_LOW: Final = 0.40
 REJECT_MIN_CONFIDENCE: Final = 0.80
+
+# TypeSafe Python SDK defaults (docs: RetryPolicy.max_retries=2, DEFAULT_TIMEOUT=10.0).
+TYPESAFE_RETRY_MAX: Final = 2
+TYPESAFE_TIMEOUT: Final = 10.0
 
 CATEGORY_COMMAND: Final = "command"
 CATEGORY_CONVERSATION: Final = "conversation"
@@ -65,6 +71,10 @@ DOMAIN_CLIMATE: Final = "climate"
 DOMAIN_COVER: Final = "cover"
 TARGET_NONE: Final = "none"
 TARGET_UNKNOWN: Final = "unknown"
+SCOPE_NAMED_ENTITY: Final = "named_entity"
+SCOPE_NAMED_AREA: Final = "named_area"
+SCOPE_WHOLE_HOME: Final = "whole_home"
+SCOPE_UNSPECIFIED: Final = "unspecified"
 
 SUPPORTED_LANGUAGES: Final = ("en", "de")
 DEFAULT_LANGUAGE: Final = "en"
