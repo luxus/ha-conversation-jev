@@ -7,7 +7,18 @@ import pytest
 from jev_assist.const import FAST_MIN_CONFIDENCE, NOUL_YES_THRESHOLD
 from jev_assist.jev_router import ExposedEntity, route
 
-from .fakes import FakeJevClient, LIVING_LAMP, classification
+from .fakes import (
+    BEDROOM_COVER,
+    BEDROOM_LIGHT,
+    FLUR_LIGHT,
+    HALLWAY_LIGHT,
+    LIVING_CLIMATE,
+    LIVING_LAMP,
+    SCHLAFZIMMER_LIGHT,
+    WOHNZIMMER_LIGHT,
+    FakeJevClient,
+    classification,
+)
 
 
 @pytest.mark.asyncio
@@ -104,11 +115,11 @@ async def test_grok_low_choice_confidence() -> None:
 
 
 @pytest.mark.asyncio
-async def test_grok_non_light_domain_v0() -> None:
-    client = FakeJevClient(classification(domain="climate"))
-    result = await route("set heating to 21", [LIVING_LAMP], language="en", client=client)
+async def test_grok_unmapped_domain() -> None:
+    client = FakeJevClient(classification(domain="media_player"))
+    result = await route("pause the tv", [LIVING_LAMP], language="en", client=client)
     assert result.kind == "grok"
-    assert result.reason == "domain_not_light_v0"
+    assert result.reason == "domain_unmapped"
 
 
 @pytest.mark.asyncio
@@ -262,3 +273,353 @@ async def test_target_area_none_name_token_match() -> None:
     )
     assert result.kind == "fast_service"
     assert result.service_data == {"entity_id": "light.living_lamp"}
+
+
+def _entity_ids(result) -> set[str]:
+    data = result.service_data or {}
+    raw = data.get("entity_id")
+    if raw is None:
+        return set()
+    if isinstance(raw, str):
+        return {raw}
+    return set(raw)
+
+
+@pytest.mark.asyncio
+async def test_multi_area_de_lights_on_fast_despite_compound() -> None:
+    client = FakeJevClient(
+        classification(
+            action="turn_on",
+            target_area="Schlafzimmer",
+            is_compound=0.91,
+        )
+    )
+    result = await route(
+        "alle Lichter in Schlafzimmer und Flur an",
+        [SCHLAFZIMMER_LIGHT, FLUR_LIGHT, WOHNZIMMER_LIGHT],
+        language="de",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.reason == "light_v0"
+    assert result.service == "turn_on"
+    assert _entity_ids(result) == {"light.schlafzimmer", "light.flur"}
+
+
+@pytest.mark.asyncio
+async def test_multi_area_de_lights_off_fast() -> None:
+    client = FakeJevClient(
+        classification(action="turn_off", target_area="none", is_compound=0.80)
+    )
+    result = await route(
+        "alle Lichter in Schlafzimmer und Flur aus",
+        [SCHLAFZIMMER_LIGHT, FLUR_LIGHT, WOHNZIMMER_LIGHT],
+        language="de",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.service == "turn_off"
+    assert _entity_ids(result) == {"light.schlafzimmer", "light.flur"}
+
+
+@pytest.mark.asyncio
+async def test_multi_area_en_lights_on_fast() -> None:
+    client = FakeJevClient(
+        classification(action="turn_on", target_area="bedroom", is_compound=0.70)
+    )
+    result = await route(
+        "all lights in bedroom and hallway",
+        [BEDROOM_LIGHT, HALLWAY_LIGHT, LIVING_LAMP],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.service == "turn_on"
+    assert _entity_ids(result) == {"light.bedroom", "light.hallway"}
+
+
+@pytest.mark.asyncio
+async def test_multi_area_en_lights_off_fast() -> None:
+    client = FakeJevClient(
+        classification(action="turn_off", target_area="hallway", is_compound=0.88)
+    )
+    result = await route(
+        "turn off all lights in bedroom and hallway",
+        [BEDROOM_LIGHT, HALLWAY_LIGHT, LIVING_LAMP],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.service == "turn_off"
+    assert _entity_ids(result) == {"light.bedroom", "light.hallway"}
+
+
+@pytest.mark.asyncio
+async def test_multi_area_does_not_fire_unnamed_rooms() -> None:
+    client = FakeJevClient(classification(action="turn_on", target_area="none"))
+    result = await route(
+        "alle Lichter in Schlafzimmer und Flur",
+        [SCHLAFZIMMER_LIGHT, FLUR_LIGHT, WOHNZIMMER_LIGHT],
+        language="de",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert "light.wohnzimmer" not in _entity_ids(result)
+
+
+@pytest.mark.asyncio
+async def test_conflicting_multi_area_actions_still_compound() -> None:
+    client = FakeJevClient(
+        classification(action="turn_on", target_area="bedroom", is_compound=0.95)
+    )
+    result = await route(
+        "turn on lights in bedroom and turn off hallway",
+        [BEDROOM_LIGHT, HALLWAY_LIGHT],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "is_compound"
+
+
+@pytest.mark.asyncio
+async def test_mixed_domain_multi_area_goes_to_grok() -> None:
+    client = FakeJevClient(
+        classification(action="turn_on", target_area="bedroom", is_compound=0.90)
+    )
+    result = await route(
+        "turn on lights in bedroom and open blinds in hallway",
+        [BEDROOM_LIGHT, HALLWAY_LIGHT, BEDROOM_COVER],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "is_compound"
+
+
+@pytest.mark.asyncio
+async def test_true_compound_without_two_areas_still_grok() -> None:
+    client = FakeJevClient(classification(is_compound=0.91))
+    result = await route(
+        "turn off the lamp and lock the door",
+        [LIVING_LAMP],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "is_compound"
+
+
+@pytest.mark.asyncio
+async def test_climate_set_temperature_fast() -> None:
+    client = FakeJevClient(
+        classification(domain="climate", action="set_temperature", target_area="Living room")
+    )
+    result = await route(
+        "set heating to 21°C",
+        [LIVING_CLIMATE, LIVING_LAMP],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.reason == "climate_v0"
+    assert result.domain == "climate"
+    assert result.service == "set_temperature"
+    assert result.service_data == {
+        "entity_id": "climate.living",
+        "temperature": 21.0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_climate_set_temperature_unparsed_grok() -> None:
+    client = FakeJevClient(
+        classification(domain="climate", action="set_temperature", target_area="Living room")
+    )
+    result = await route(
+        "make the heating a bit warmer",
+        [LIVING_CLIMATE],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "temperature_unparsed"
+
+
+@pytest.mark.asyncio
+async def test_climate_turn_off_fast() -> None:
+    client = FakeJevClient(
+        classification(domain="climate", action="turn_off", target_area="Living room")
+    )
+    result = await route(
+        "turn off the heating",
+        [LIVING_CLIMATE],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.service == "turn_off"
+    assert result.service_data == {"entity_id": "climate.living"}
+
+
+@pytest.mark.asyncio
+async def test_climate_set_hvac_mode_fast() -> None:
+    client = FakeJevClient(
+        classification(domain="climate", action="set_hvac_mode", target_area="Living room")
+    )
+    result = await route(
+        "set the thermostat to cool",
+        [LIVING_CLIMATE],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.service == "set_hvac_mode"
+    assert result.service_data == {
+        "entity_id": "climate.living",
+        "hvac_mode": "cool",
+    }
+
+
+@pytest.mark.asyncio
+async def test_climate_whole_home_none_does_not_fire_all() -> None:
+    other = ExposedEntity(
+        entity_id="climate.kitchen",
+        domain="climate",
+        name="Kitchen thermostat",
+        area="Kitchen",
+    )
+    client = FakeJevClient(
+        classification(domain="climate", action="turn_off", target_area="none")
+    )
+    result = await route(
+        "turn off the heating",
+        [LIVING_CLIMATE, other],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "no_named_or_area_target"
+
+
+@pytest.mark.asyncio
+async def test_climate_explicit_area_no_entity_rejects() -> None:
+    client = FakeJevClient(
+        classification(domain="climate", action="turn_off", target_area="Kitchen")
+    )
+    result = await route(
+        "turn off kitchen heating",
+        [LIVING_CLIMATE],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "reject"
+    assert result.reason == "no_exposed_climate"
+
+
+@pytest.mark.asyncio
+async def test_cover_open_fast() -> None:
+    client = FakeJevClient(
+        classification(domain="cover", action="open", target_area="bedroom")
+    )
+    result = await route(
+        "open the bedroom blinds",
+        [BEDROOM_COVER, BEDROOM_LIGHT],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.reason == "cover_v0"
+    assert result.service == "open_cover"
+    assert result.service_data == {"entity_id": "cover.bedroom_blind"}
+
+
+@pytest.mark.asyncio
+async def test_cover_set_position_fast() -> None:
+    client = FakeJevClient(
+        classification(domain="cover", action="set_position", target_area="bedroom")
+    )
+    result = await route(
+        "set the bedroom blinds to 40%",
+        [BEDROOM_COVER],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.service == "set_cover_position"
+    assert result.service_data == {
+        "entity_id": "cover.bedroom_blind",
+        "position": 40,
+    }
+
+
+@pytest.mark.asyncio
+async def test_cover_set_position_unparsed_grok() -> None:
+    client = FakeJevClient(
+        classification(domain="cover", action="set_position", target_area="bedroom")
+    )
+    result = await route(
+        "set the bedroom blinds halfway",
+        [BEDROOM_COVER],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "position_unparsed"
+
+
+@pytest.mark.asyncio
+async def test_cover_turn_off_alias_closes() -> None:
+    client = FakeJevClient(
+        classification(domain="cover", action="turn_off", target_area="bedroom")
+    )
+    result = await route(
+        "close the bedroom blinds",
+        [BEDROOM_COVER],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "fast_service"
+    assert result.service == "close_cover"
+
+
+@pytest.mark.asyncio
+async def test_climate_sole_turn_off_with_none_fast() -> None:
+    client = FakeJevClient(
+        classification(domain="climate", action="turn_off", target_area="none")
+    )
+    result = await route("Heizung aus", [LIVING_CLIMATE], language="de", client=client)
+    assert result.kind == "fast_service"
+    assert result.service == "turn_off"
+    assert result.service_data == {"entity_id": "climate.living"}
+
+
+@pytest.mark.asyncio
+async def test_climate_sole_set_temperature_none_still_grok() -> None:
+    client = FakeJevClient(
+        classification(domain="climate", action="set_temperature", target_area="none")
+    )
+    result = await route("set to 21°C", [LIVING_CLIMATE], language="en", client=client)
+    assert result.kind == "grok"
+    assert result.reason == "no_named_or_area_target"
+
+
+@pytest.mark.asyncio
+async def test_cover_whole_home_none_does_not_fire_all() -> None:
+    other = ExposedEntity(
+        entity_id="cover.kitchen_blind",
+        domain="cover",
+        name="Kitchen blind",
+        area="Kitchen",
+    )
+    client = FakeJevClient(
+        classification(domain="cover", action="close", target_area="none")
+    )
+    result = await route(
+        "close the blinds",
+        [BEDROOM_COVER, other],
+        language="en",
+        client=client,
+    )
+    assert result.kind == "grok"
+    assert result.reason == "no_named_or_area_target"

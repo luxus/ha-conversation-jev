@@ -1,4 +1,4 @@
-"""Conversation entity: Jev route → light service or SpaceXAI Grok handoff."""
+"""Conversation entity: Jev route → light/climate/cover service or Grok handoff."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ class JevAssistConversationEntity(
     conversation.ConversationEntity,
     conversation.AbstractConversationAgent,
 ):
-    """Assist agent that fast-paths lights via Jev and hands Grok off to SpaceXAI."""
+    """Assist agent that fast-paths lights/climate/cover and hands Grok off."""
 
     _attr_has_entity_name = True
     _attr_name = None

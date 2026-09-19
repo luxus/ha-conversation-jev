@@ -52,7 +52,7 @@ GROK_OAUTH_REFERRER: Final = REFERRER
 GROK_API_BASE: Final = "https://api.x.ai"
 GROK_CLI_PROXY_BASE: Final = "https://cli-chat-proxy.grok.com"
 
-# Router gates (CONTRACT.md v0, blessed)
+# Router gates (CONTRACT.md v1, blessed)
 FAST_MIN_CONFIDENCE: Final = 0.80
 NOUL_YES_THRESHOLD: Final = 0.55
 REJECT_MIN_CONFIDENCE: Final = 0.80
@@ -61,6 +61,8 @@ CATEGORY_COMMAND: Final = "command"
 CATEGORY_CONVERSATION: Final = "conversation"
 CATEGORY_REJECT: Final = "reject"
 DOMAIN_LIGHT: Final = "light"
+DOMAIN_CLIMATE: Final = "climate"
+DOMAIN_COVER: Final = "cover"
 TARGET_NONE: Final = "none"
 TARGET_UNKNOWN: Final = "unknown"
 

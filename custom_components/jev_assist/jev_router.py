@@ -1,15 +1,18 @@
-"""Jev routing: fast HA light service, Grok fallback, or reject."""
+"""Jev routing: fast HA light/climate/cover service, Grok fallback, or reject."""
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol, Sequence
+from typing import Any, Callable, Literal, Protocol, Sequence
 
+from .climate_map import CLIMATE_ACTION_MAP, climate_service_call
 from .const import (
     CATEGORY_COMMAND,
     CATEGORY_REJECT,
     DEFAULT_LANGUAGE,
+    DOMAIN_CLIMATE,
+    DOMAIN_COVER,
     DOMAIN_LIGHT,
     FAST_MIN_CONFIDENCE,
     NOUL_YES_THRESHOLD,
@@ -17,6 +20,7 @@ from .const import (
     TARGET_NONE,
     TARGET_UNKNOWN,
 )
+from .cover_map import COVER_ACTION_MAP, cover_service_call
 from .light_map import LIGHT_ACTION_MAP, light_service_call
 
 _TOKEN_RE = re.compile(r"[a-z0-9äöüß]+", re.IGNORECASE)
@@ -53,6 +57,9 @@ _STOP_TOKENS = frozenset(
         "schalte",
         "mach",
         "machen",
+        "alle",
+        "und",
+        "im",
     }
 )
 _GENERIC_LIGHT_TOKENS = frozenset(
@@ -71,6 +78,82 @@ _GENERIC_LIGHT_TOKENS = frozenset(
         "dimmer",
     }
 )
+_GENERIC_CLIMATE_TOKENS = frozenset(
+    {
+        "climate",
+        "thermostat",
+        "heating",
+        "heater",
+        "hvac",
+        "temperature",
+        "heizung",
+        "heizkörper",
+        "heizkoerper",
+        "klima",
+        "klimaanlage",
+        "temperatur",
+    }
+)
+_GENERIC_COVER_TOKENS = frozenset(
+    {
+        "cover",
+        "covers",
+        "blind",
+        "blinds",
+        "shade",
+        "shades",
+        "shutter",
+        "shutters",
+        "curtain",
+        "curtains",
+        "jalousie",
+        "jalousien",
+        "rollladen",
+        "rollläden",
+        "rolllaeden",
+        "rollo",
+        "rollos",
+        "vorhang",
+        "vorhänge",
+        "vorhaenge",
+        "garagentor",
+    }
+)
+_GENERIC_TOKENS_BY_DOMAIN: dict[str, frozenset[str]] = {
+    DOMAIN_LIGHT: _GENERIC_LIGHT_TOKENS,
+    DOMAIN_CLIMATE: _GENERIC_CLIMATE_TOKENS,
+    DOMAIN_COVER: _GENERIC_COVER_TOKENS,
+}
+
+_FAST_ACTION_MAPS: dict[str, dict[str, tuple[str, str]]] = {
+    DOMAIN_LIGHT: LIGHT_ACTION_MAP,
+    DOMAIN_CLIMATE: CLIMATE_ACTION_MAP,
+    DOMAIN_COVER: COVER_ACTION_MAP,
+}
+_FAST_SERVICE_CALLS: dict[
+    str, Callable[[str, list[str], str], tuple[str, str, dict[str, Any]] | None]
+] = {
+    DOMAIN_LIGHT: light_service_call,
+    DOMAIN_CLIMATE: climate_service_call,
+    DOMAIN_COVER: cover_service_call,
+}
+_FAST_REASONS: dict[str, str] = {
+    DOMAIN_LIGHT: "light_v0",
+    DOMAIN_CLIMATE: "climate_v0",
+    DOMAIN_COVER: "cover_v0",
+}
+_SOLE_FAST_ACTIONS: dict[str, frozenset[str]] = {
+    DOMAIN_LIGHT: frozenset({"turn_on", "turn_off", "toggle"}),
+    DOMAIN_CLIMATE: frozenset({"turn_on", "turn_off"}),
+    DOMAIN_COVER: frozenset({"open", "close", "stop", "turn_on", "turn_off"}),
+}
+_UNPARSED_REASONS: dict[str, str] = {
+    "set_brightness": "brightness_unparsed",
+    "set_temperature": "temperature_unparsed",
+    "set_hvac_mode": "hvac_mode_unparsed",
+    "set_position": "position_unparsed",
+}
+_COVER_PHRASES = ("garage door", "garage doors")
 
 RouteKind = Literal["fast_service", "grok", "reject"]
 
@@ -181,50 +264,134 @@ def _entity_name_tokens(entity: ExposedEntity) -> set[str]:
     blob = " ".join(
         (entity.name, entity.entity_id.split(".", 1)[-1].replace("_", " "), *entity.aliases)
     )
+    generics = _GENERIC_TOKENS_BY_DOMAIN.get(entity.domain, frozenset())
     return {
         token
         for token in _words(blob)
-        if len(token) >= 3 and token not in _STOP_TOKENS and token not in _GENERIC_LIGHT_TOKENS
+        if len(token) >= 3 and token not in _STOP_TOKENS and token not in generics
     }
 
 
-def _name_matched_lights(
-    utterance: str, lights: Sequence[ExposedEntity]
+def _name_matched_entities(
+    utterance: str, items: Sequence[ExposedEntity]
 ) -> list[ExposedEntity]:
     uttered = _words(utterance)
-    return [item for item in lights if _entity_name_tokens(item) & uttered]
+    return [item for item in items if _entity_name_tokens(item) & uttered]
 
 
-_SOLE_LIGHT_FAST_ACTIONS = frozenset({"turn_on", "turn_off", "toggle"})
+def _unique_area_names(exposed: Sequence[ExposedEntity]) -> list[str]:
+    seen: list[str] = []
+    for item in exposed:
+        if not item.area:
+            continue
+        if item.area not in seen:
+            seen.append(item.area)
+    return seen
 
 
-def _resolve_lights(
+def _area_mentioned(utterance: str, area: str) -> bool:
+    """True if ``area`` appears as a phrase in the utterance (DE/EN letters)."""
+    folded_area = area.casefold().strip()
+    if len(folded_area) < 2:
+        return False
+    pattern = re.compile(
+        r"(?<![a-z0-9äöüß])" + re.escape(folded_area) + r"(?![a-z0-9äöüß])"
+    )
+    return pattern.search(utterance.casefold()) is not None
+
+
+def named_areas_in_utterance(
+    utterance: str, exposed: Sequence[ExposedEntity]
+) -> list[str]:
+    """Area names from exposed entities that appear as phrases in the utterance."""
+    return [
+        area
+        for area in _unique_area_names(exposed)
+        if _area_mentioned(utterance, area)
+    ]
+
+
+def _mentions_other_fast_domain(utterance: str, domain: str) -> bool:
+    uttered = _words(utterance)
+    for other, tokens in _GENERIC_TOKENS_BY_DOMAIN.items():
+        if other != domain and uttered & tokens:
+            return True
+    if domain != DOMAIN_COVER:
+        folded = utterance.casefold()
+        if any(phrase in folded for phrase in _COVER_PHRASES):
+            return True
+    return False
+
+
+def _has_conflicting_actions(utterance: str) -> bool:
+    tokens = _words(utterance)
+    on_like = tokens & {"on", "an", "ein"}
+    off_like = tokens & {"off", "aus"}
+    if on_like and off_like:
+        return True
+    open_like = tokens & {"open", "öffnen", "oeffnen", "oeffne"}
+    close_like = tokens & {"close", "schließen", "schliessen", "schliesse"}
+    return bool(open_like and close_like)
+
+
+def _is_multi_area_same_action(
+    utterance: str,
+    named_areas: Sequence[str],
+    domain: str,
+) -> bool:
+    """Same domain + same action + two or more named rooms (not mixed ops)."""
+    if len(named_areas) < 2:
+        return False
+    if _mentions_other_fast_domain(utterance, domain):
+        return False
+    if _has_conflicting_actions(utterance):
+        return False
+    return True
+
+
+def _resolve_targets(
     utterance: str,
     exposed: Sequence[ExposedEntity],
+    domain: str,
     target_area: str,
+    named_areas: Sequence[str],
     *,
     action: str | None = None,
 ) -> tuple[list[ExposedEntity], str | None]:
-    """Resolve light targets. Never fire all exposed lights on ``none`` alone.
+    """Resolve domain targets. Never fire all exposed entities on ``none`` alone.
 
-    Fast path requires an explicit area (not none/unknown), a name-token
-    match, or exactly one Assist-exposed light for ``turn_on`` / ``turn_off`` /
-    ``toggle``. Otherwise the caller should Grok, not whole-home.
+    Fast path requires an explicit area (not none/unknown), two or more named
+    areas in the utterance (union of those rooms only), a name-token match, or
+    exactly one Assist-exposed entity of this domain for simple on/off-style
+    actions. Otherwise the caller should Grok, not whole-home.
     """
-    lights = [item for item in exposed if item.domain == DOMAIN_LIGHT]
+    of_domain = [item for item in exposed if item.domain == domain]
+    missing = f"no_exposed_{domain}"
+
+    if len(named_areas) >= 2:
+        wanted = {area.casefold() for area in named_areas}
+        scoped = [
+            item for item in of_domain if (item.area or "").casefold() in wanted
+        ]
+        if not scoped:
+            return [], missing
+        return scoped, None
+
     if target_area == TARGET_UNKNOWN:
         return [], "target_area_unknown"
     if target_area and target_area != TARGET_NONE:
         wanted = target_area.casefold()
-        scoped = [item for item in lights if (item.area or "").casefold() == wanted]
+        scoped = [
+            item for item in of_domain if (item.area or "").casefold() == wanted
+        ]
         if not scoped:
-            return [], "no_exposed_light"
+            return [], missing
         return scoped, None
-    named = _name_matched_lights(utterance, lights)
+    named = _name_matched_entities(utterance, of_domain)
     if named:
         return named, None
-    if action in _SOLE_LIGHT_FAST_ACTIONS and len(lights) == 1:
-        return lights, None
+    if action in _SOLE_FAST_ACTIONS.get(domain, frozenset()) and len(of_domain) == 1:
+        return of_domain, None
     return [], "no_named_or_area_target"
 
 
@@ -233,7 +400,7 @@ def apply_gates(
     exposed: Sequence[ExposedEntity],
     classification: JevClassification,
 ) -> RouteResult:
-    """Apply CONTRACT.md v0 gates to a Jev classification."""
+    """Apply CONTRACT.md gates to a Jev classification."""
     cat = classification.category
     if cat.choice == CATEGORY_REJECT and cat.confidence >= REJECT_MIN_CONFIDENCE:
         return RouteResult(
@@ -242,10 +409,31 @@ def apply_gates(
             classification=classification,
         )
 
-    if _noul_yes(classification.is_compound):
+    named_areas = named_areas_in_utterance(utterance, exposed)
+    domain_choice = classification.domain.choice
+    action_map = _FAST_ACTION_MAPS.get(domain_choice, {})
+    multi_area = (
+        domain_choice in _FAST_ACTION_MAPS
+        and classification.action.choice in action_map
+        and _choice_ok(classification.domain)
+        and classification.action.confidence >= FAST_MIN_CONFIDENCE
+        and _is_multi_area_same_action(utterance, named_areas, domain_choice)
+    )
+    mixed_or_conflict = len(named_areas) >= 2 and (
+        _mentions_other_fast_domain(utterance, domain_choice)
+        or _has_conflicting_actions(utterance)
+    )
+
+    if _noul_yes(classification.is_compound) and not multi_area:
         return RouteResult(
             kind="grok",
             reason="is_compound",
+            classification=classification,
+        )
+    if mixed_or_conflict:
+        return RouteResult(
+            kind="grok",
+            reason="mixed_ops",
             classification=classification,
         )
     if _noul_yes(classification.needs_llm):
@@ -261,14 +449,14 @@ def apply_gates(
             reason="not_fast_command",
             classification=classification,
         )
-    if not _choice_ok(classification.domain, DOMAIN_LIGHT):
+    if not _choice_ok(classification.domain) or domain_choice not in _FAST_ACTION_MAPS:
         return RouteResult(
             kind="grok",
-            reason="domain_not_light_v0",
+            reason="domain_unmapped",
             classification=classification,
         )
     if (
-        classification.action.choice not in LIGHT_ACTION_MAP
+        classification.action.choice not in action_map
         or classification.action.confidence < FAST_MIN_CONFIDENCE
     ):
         return RouteResult(
@@ -276,22 +464,24 @@ def apply_gates(
             reason="action_unmapped",
             classification=classification,
         )
-    if classification.target_area.confidence < FAST_MIN_CONFIDENCE:
+    if classification.target_area.confidence < FAST_MIN_CONFIDENCE and not multi_area:
         return RouteResult(
             kind="grok",
             reason="target_area_low_confidence",
             classification=classification,
         )
 
-    lights, target_reason = _resolve_lights(
+    targets, target_reason = _resolve_targets(
         utterance,
         exposed,
+        domain_choice,
         classification.target_area.choice,
+        named_areas,
         action=classification.action.choice,
     )
-    if not lights:
+    if not targets:
         kind: RouteKind = (
-            "reject" if target_reason == "no_exposed_light" else "grok"
+            "reject" if (target_reason or "").startswith("no_exposed_") else "grok"
         )
         return RouteResult(
             kind=kind,
@@ -299,21 +489,23 @@ def apply_gates(
             classification=classification,
         )
 
-    mapped = light_service_call(
+    mapped = _FAST_SERVICE_CALLS[domain_choice](
         classification.action.choice,
-        [item.entity_id for item in lights],
+        [item.entity_id for item in targets],
         utterance,
     )
     if mapped is None:
         return RouteResult(
             kind="grok",
-            reason="brightness_unparsed",
+            reason=_UNPARSED_REASONS.get(
+                classification.action.choice, "action_unmapped"
+            ),
             classification=classification,
         )
     domain, service, data = mapped
     return RouteResult(
         kind="fast_service",
-        reason="light_v0",
+        reason=_FAST_REASONS[domain_choice],
         domain=domain,
         service=service,
         service_data=data,
